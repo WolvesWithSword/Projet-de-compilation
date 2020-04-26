@@ -9,14 +9,18 @@
 	char* name;
 	int value;
 }
-
-%token IDENTIFIER CONSTANT SIZEOF
+%token <name> IDENTIFIER
+%token <value> CONSTANT
+%token SIZEOF
 %token PTR_OP LE_OP GE_OP EQ_OP NE_OP
 %token AND_OP OR_OP
 %token EXTERN
 %token INT VOID
 %token STRUCT 
 %token IF ELSE WHILE FOR RETURN
+
+%nonassoc LOWER_THAN_ELSE
+%nonassoc ELSE
 
 %start program
 %%
@@ -125,15 +129,15 @@ struct_declaration
         ;
 
 declarator
-        : '*' direct_declarator
-        | direct_declarator
+        : '*' direct_declarator 
+        | direct_declarator 
         ;
 
 direct_declarator
-        : IDENTIFIER
-        | '(' declarator ')'
-        | direct_declarator '(' parameter_list ')'
-        | direct_declarator '(' ')'
+        : IDENTIFIER 
+        | '(' declarator ')' 
+        | direct_declarator '(' parameter_list ')' 
+        | direct_declarator '(' ')' 
         ;
 
 parameter_list
@@ -152,12 +156,17 @@ statement
         | iteration_statement
         | jump_statement 
         ;
+new_stage
+	: {addStageToStack(stack);};
+
+remove_stage
+	: {printStack(stack);removeStageToStack(stack);};
 
 compound_statement
         : '{' '}'
-        | '{' statement_list '}'
-        | '{' declaration_list '}'
-        | '{' declaration_list statement_list '}'
+        | '{' new_stage statement_list '}' remove_stage
+        | '{' new_stage declaration_list '}' remove_stage
+        | '{' new_stage declaration_list statement_list '}' remove_stage
         ;
 
 declaration_list
@@ -176,7 +185,7 @@ expression_statement
         ;
 
 selection_statement
-        : IF '(' expression ')' statement
+        : IF '(' expression ')' statement %prec LOWER_THAN_ELSE
         | IF '(' expression ')' statement ELSE statement
         ;
 
@@ -207,7 +216,6 @@ function_definition
 %%
 
 extern FILE *yyin;
-
 int yyerror( char *s ){
 	fprintf(stderr,"%s\n",s);
 	exit(1);
@@ -220,6 +228,7 @@ int main(int argc, char *argv[])
 		exit(1);
 	} 
 	else {
+		stack = newStack();
 		yyparse();
         	printf("Parse done\n");
 	}
