@@ -52,11 +52,11 @@ COM			"/*"[^"*/"]*"*/"
 "volatile"              { /* A completer */ }
 "while"                 { printf("WHILE"); return WHILE;}
 
-{L}({L}|{D})*           {yylval.name = yytext; printf("IDENTIFIER"); return IDENTIFIER;}
+{L}({L}|{D})*           {yylval.name = strdup(yytext); printf("IDENTIFIER"); return IDENTIFIER;}
 
 0[xX]{H}+{IS}?          { /* A completer */ }
 0{D}+{IS}?              { /* A completer */ }
-{D}+{IS}?               {yylval.value = atoi(yytext); printf("CONSTANT"); return CONSTANT;}
+{D}+{IS}?               {yylval.value = strtol(yytext); printf("CONSTANT"); return CONSTANT;}
 L?'(\\.|[^\\'])+'       { /* A completer */ }
 
 {D}+{E}{FS}?            { /* A completer */ }

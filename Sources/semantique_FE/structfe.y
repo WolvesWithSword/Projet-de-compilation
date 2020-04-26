@@ -2,6 +2,7 @@
 
 	#include <stdio.h>
 	#include <stdlib.h>
+	#include <string.h>
 	#include "variable.h"
 %}
 
@@ -21,6 +22,9 @@
 
 %nonassoc LOWER_THAN_ELSE
 %nonassoc ELSE
+
+%type <name> direct_declarator
+%type <name> declarator
 
 %start program
 %%
@@ -130,14 +134,14 @@ struct_declaration
 
 declarator
         : '*' direct_declarator 
-        | direct_declarator 
+        | direct_declarator {printf("\nUn petit mot :%s!!\n",$1);}
         ;
 
 direct_declarator
-        : IDENTIFIER 
-        | '(' declarator ')' 
-        | direct_declarator '(' parameter_list ')' 
-        | direct_declarator '(' ')' 
+        : IDENTIFIER {printf("\nsecond=%s\n",$1); $$ = $1;}
+        | '(' declarator ')' {$$=$2;}
+        | direct_declarator '(' parameter_list ')' {$$=$1;}
+        | direct_declarator '(' ')' {$$=$1;}
         ;
 
 parameter_list
