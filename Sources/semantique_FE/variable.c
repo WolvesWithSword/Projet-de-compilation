@@ -6,8 +6,6 @@
 
 typedef enum { VOID_T, INT_T } Type;
 
-
-
 /*
 Represente la declaration d'une variable
 */
@@ -30,6 +28,7 @@ Represente un noeud de la liste chainée
 typedef struct _Node
 {
 	int isFonction;
+	int isPointer;
 
 	Fonction *fonction;
 	Variable *var;
@@ -137,10 +136,19 @@ void addNode(LinkedListNode* listNode, Node* var){
 void printListNode(LinkedListNode* listNode){
 	Node* current = listNode->first;
 	while(current!=NULL){
-		printf("%s\n",current->name );
+		printf("%d",current->type);
+		if(current->isPointer) {
+			printf("*");
+		}
+		printf(" %s",current->name );
+		
+		if(current->isFonction) {
+			printf("()");
+		}
+		printf("\n");
 		current = current->next;
 	}
-	printf("end list\n");
+	printf("end stage\n");
 	return;
 }
 

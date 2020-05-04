@@ -4,14 +4,18 @@
 	#include <stdlib.h>
 	#include <string.h>
 	#include "variable.h"
-
+	
+	int yylex();	
+	int yyerror();
 %}
 
 %union {
 	char* name;
 	int value;
 	Node *tmpNode;
+	Type type;
 }
+
 %token <name> IDENTIFIER
 %token <value> CONSTANT
 %token SIZEOF
@@ -27,6 +31,8 @@
 
 %type <tmpNode> direct_declarator
 %type <tmpNode> declarator
+%type <type> declaration_specifiers
+%type <type> type_specifier
 
 %start program
 %%
@@ -104,19 +110,19 @@ expression
         ;
 
 declaration
-        : declaration_specifiers declarator ';' {addNodeStack(stack,$2);}
+        : declaration_specifiers declarator ';' {$2->type = $1; addNodeStack(stack,$2);}
         | struct_specifier ';'
         ;
 
 declaration_specifiers
-        : EXTERN type_specifier
-        | type_specifier
+        : EXTERN type_specifier {$$ = $2; /* il faudra modifier EXTERN*/}
+        | type_specifier {$$ = $1;}
         ;
 
 type_specifier
-        : VOID
-        | INT
-        | struct_specifier
+        : VOID {$$ = VOID_T;}
+        | INT  {$$ = INT_T;}
+        | struct_specifier 
         ;
 
 struct_specifier
@@ -135,7 +141,7 @@ struct_declaration
         ;
 
 declarator
-        : '*' direct_declarator {$$ = $2; /*c'est un pointeur a fair*/}
+        : '*' direct_declarator {$2->isPointer = 1; $$ = $2; /*c'est un pointeur a fair*/}
         | direct_declarator {$$ = $1;}
         ;
 
@@ -163,10 +169,10 @@ statement
         | jump_statement 
         ;
 new_stage
-	: {addStageToStack(stack);};
+	: {printf("\nadd stage\n");addStageToStack(stack);};
 
 remove_stage
-	: {printf("\n");printStack(stack);removeStageToStack(stack);};
+	: {printf("\nremove stage\n");printStack(stack);removeStageToStack(stack);};
 
 compound_statement
         : '{' '}'
@@ -216,7 +222,7 @@ external_declaration
         ;
 
 function_definition
-        : declaration_specifiers declarator compound_statement
+        : declaration_specifiers declarator {$2->type = $1; addNodeStack(stack,$2);} compound_statement
         ;
 
 %%

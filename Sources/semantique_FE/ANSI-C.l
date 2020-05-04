@@ -12,6 +12,9 @@ COM			"/*"[^"*/"]*"*/"
 #include "variable.h"
 #include "y.tab.h"
 
+int yylex();
+int yyerror();
+
 
 
 /* Ne gère pas les commentaires. A rajouter */

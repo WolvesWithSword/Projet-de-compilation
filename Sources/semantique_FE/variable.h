@@ -25,6 +25,7 @@ Represente un noeud de la liste chainée
 typedef struct _Node
 {
 	int isFonction;
+	int isPointer;
 
 	Fonction *fonction;
 	Variable *var;
