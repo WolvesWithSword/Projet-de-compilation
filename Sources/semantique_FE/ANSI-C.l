@@ -9,7 +9,9 @@ COM			"/*"[^"*/"]*"*/"
 %{
 #include <stdio.h>
 #include <stdlib.h>
+#include "variable.h"
 #include "y.tab.h"
+
 
 
 /* Ne gère pas les commentaires. A rajouter */
@@ -56,7 +58,7 @@ COM			"/*"[^"*/"]*"*/"
 
 0[xX]{H}+{IS}?          { /* A completer */ }
 0{D}+{IS}?              { /* A completer */ }
-{D}+{IS}?               {yylval.value = strtol(yytext); printf("CONSTANT"); return CONSTANT;}
+{D}+{IS}?               {yylval.value = atoi(yytext); printf("CONSTANT"); return CONSTANT;}
 L?'(\\.|[^\\'])+'       { /* A completer */ }
 
 {D}+{E}{FS}?            { /* A completer */ }

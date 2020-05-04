@@ -1,7 +1,7 @@
 #ifndef VARIABLE_H
 #define VARIABLE_H
 
-typedef enum { VOID, INT } Type;
+typedef enum { VOID_T, INT_T } Type;
 
 /*
 Represente la declaration d'une variable

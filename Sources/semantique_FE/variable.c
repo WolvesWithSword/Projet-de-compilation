@@ -4,7 +4,7 @@
 
 
 
-typedef enum { VOID, INT } Type;
+typedef enum { VOID_T, INT_T } Type;
 
 
 

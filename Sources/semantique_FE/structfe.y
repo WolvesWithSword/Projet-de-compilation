@@ -4,11 +4,13 @@
 	#include <stdlib.h>
 	#include <string.h>
 	#include "variable.h"
+
 %}
 
 %union {
 	char* name;
 	int value;
+	Node *tmpNode;
 }
 %token <name> IDENTIFIER
 %token <value> CONSTANT
@@ -23,8 +25,8 @@
 %nonassoc LOWER_THAN_ELSE
 %nonassoc ELSE
 
-%type <name> direct_declarator
-%type <name> declarator
+%type <tmpNode> direct_declarator
+%type <tmpNode> declarator
 
 %start program
 %%
@@ -102,7 +104,7 @@ expression
         ;
 
 declaration
-        : declaration_specifiers declarator ';'
+        : declaration_specifiers declarator ';' {addNodeStack(stack,$2);}
         | struct_specifier ';'
         ;
 
@@ -133,20 +135,20 @@ struct_declaration
         ;
 
 declarator
-        : '*' direct_declarator 
-        | direct_declarator {printf("\nUn petit mot :%s!!\n",$1);}
+        : '*' direct_declarator {$$ = $2; /*c'est un pointeur a fair*/}
+        | direct_declarator {$$ = $1;}
         ;
 
 direct_declarator
-        : IDENTIFIER {printf("\nsecond=%s\n",$1); $$ = $1;}
-        | '(' declarator ')' {$$=$2;}
-        | direct_declarator '(' parameter_list ')' {$$=$1;}
-        | direct_declarator '(' ')' {$$=$1;}
+        : IDENTIFIER {Node* node = initNode(); node->name = $1; $$ = node;}
+        | '(' declarator ')' {$$=$2;}  
+        | direct_declarator '(' parameter_list ')' {Node* node = $1;node->isFonction = 1;/*affecter les parametre*/$$ = node;}
+        | direct_declarator '(' ')' {Node* node = $1;node->isFonction = 1;$$ = node;}
         ;
 
 parameter_list
-        : parameter_declaration
-        | parameter_list ',' parameter_declaration
+        : parameter_declaration {/*creation d'une liste de parametre*/}
+        | parameter_list ',' parameter_declaration {/*concatener les liste*/}
         ;
 
 parameter_declaration
@@ -164,7 +166,7 @@ new_stage
 	: {addStageToStack(stack);};
 
 remove_stage
-	: {printStack(stack);removeStageToStack(stack);};
+	: {printf("\n");printStack(stack);removeStageToStack(stack);};
 
 compound_statement
         : '{' '}'
@@ -233,6 +235,7 @@ int main(int argc, char *argv[])
 	} 
 	else {
 		stack = newStack();
+		addStageToStack(stack);
 		yyparse();
         	printf("Parse done\n");
 	}
