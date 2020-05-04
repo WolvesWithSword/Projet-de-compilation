@@ -1,36 +1,73 @@
 #ifndef VARIABLE_H
 #define VARIABLE_H
 
-typedef struct _variable
+typedef enum { VOID, INT } Type;
+
+/*
+Represente la declaration d'une variable
+*/
+typedef struct _Variable
 {
 	int value;
-	char *name;
-	struct _variable* next;
 } Variable; 
 
-typedef struct _LinkedListVariable
+/*
+Represente la declaration d'une fonction
+*/
+typedef struct _Fonction
 {
-	Variable* first;
-	struct _LinkedListVariable* next;
-} LinkedListVariable; 
+	Variable *listVar;
+} Fonction; 
 
+/*
+Represente un noeud de la liste chainée
+*/
+typedef struct _Node
+{
+	int isFonction;
+
+	Fonction *fonction;
+	Variable *var;
+
+	Type type;
+	char *name;
+
+	struct _Node* next;
+} Node; 
+
+/*
+Represente la list chainée + un noeud du block de la pile
+*/
+typedef struct _LinkedListNode
+{
+	Node* first;
+	struct _LinkedListNode* next;
+} LinkedListNode; 
+
+/*
+Represente la pile qui contient la liste des block
+*/
 typedef struct _Stack
 {
-	LinkedListVariable* top;
+	LinkedListNode* top;
 } Stack; 
 
 Stack* stack;
+Fonction* initFonction();
+Variable* initVariable();
+Node* initNode();
+void freeNode(Node* node);
 
-void freeVar(Variable* var);
-LinkedListVariable* initList();
-void freeList(LinkedListVariable* listVariable);
-Variable* getVariable(LinkedListVariable* listVariable, char* name);
-void addVariable(LinkedListVariable* listVariable, Variable* var);
-void printListVariable(LinkedListVariable* listVariable);
+LinkedListNode* initList();
+void freeList(LinkedListNode* listNode);
+
+Node* getNode(LinkedListNode* listNode, char* name);
+void addNode(LinkedListNode* listNode, Node* var);
+void printListNode(LinkedListNode* listNode);
 Stack* newStack();
-Variable* getVariableStack(Stack* stack, char* name);
-int isAlreadyDefine(Stack* stack,Variable* var);
-void addVariableStack(Stack* stack,Variable* var);
+Node* getNodeStack(Stack* stack, char* name);
+int isAlreadyDefine(Stack* stack,Node* var);
+void addNodeStack(Stack* stack,Node* var);
 void addStageToStack(Stack* stack);
 void removeStageToStack(Stack* stack);
 void printStack(Stack* stack);

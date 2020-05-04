@@ -2,44 +2,123 @@
 #include <stdlib.h>
 #include <string.h>
 
-typedef struct _variable
+
+
+typedef enum { VOID, INT } Type;
+
+
+
+/*
+Represente la declaration d'une variable
+*/
+typedef struct _Variable
 {
 	int value;
-	char *name;
-	struct _variable* next;
 } Variable; 
 
-typedef struct _LinkedListVariable
+/*
+Represente la declaration d'une fonction
+*/
+typedef struct _Fonction
 {
-	Variable* first;
-	struct _LinkedListVariable* next;
-} LinkedListVariable; 
+	Variable *listVar;
+} Fonction; 
 
+/*
+Represente un noeud de la liste chainée
+*/
+typedef struct _Node
+{
+	int isFonction;
+
+	Fonction *fonction;
+	Variable *var;
+
+	Type type;
+	char *name;
+
+	struct _Node* next;
+} Node; 
+
+/*
+Represente la list chainée + un noeud du block de la pile
+*/
+typedef struct _LinkedListNode
+{
+	Node* first;
+	struct _LinkedListNode* next;
+} LinkedListNode; 
+
+/*
+Represente la pile qui contient la liste des block
+*/
 typedef struct _Stack
 {
-	LinkedListVariable* top;
+	LinkedListNode* top;
 } Stack; 
 
-LinkedListVariable* initList(){
-	LinkedListVariable* list = malloc(sizeof(LinkedListVariable));
-	memset(list,0,sizeof(LinkedListVariable));
+//==============================Fonction function===========================================
+
+Fonction* initFonction(){
+	Fonction* fonction = malloc(sizeof(Fonction));
+	memset(fonction,0,sizeof(Fonction));
+	return fonction;
+}
+
+
+//==============================Variable function===========================================
+
+Variable* initVariable(){
+	Variable* variable = malloc(sizeof(Variable));
+	memset(variable,0,sizeof(Variable));
+	return variable;
+}
+//==============================Node function===========================================
+
+Node* initNode(){
+	Node* node = malloc(sizeof(Node));
+	memset(node,0,sizeof(Node));
+	return node;
+}
+
+void freeNode(Node* node){
+	if(node->isFonction && node->fonction!=NULL){
+		free(node->fonction);
+	}
+	else if(node->var!=NULL){
+		free(node->var);
+	}
+}
+
+//==============================LinkedListNode function===========================================
+/*
+Permet d'initialiser une list
+*/
+LinkedListNode* initList(){
+	LinkedListNode* list = malloc(sizeof(LinkedListNode));
+	memset(list,0,sizeof(LinkedListNode));
 	return list;
 }
 
-void freeList(LinkedListVariable* listVariable){
-	Variable* current = listVariable->first;
+/*
+Permet de free une list
+*/
+void freeList(LinkedListNode* listNode){
+	Node* current = listNode->first;
 	while(current!=NULL){
-		Variable* tmp = current;
+		Node* tmp = current;
 		current = current->next;
-		free(tmp);
+		freeNode(tmp);
 	}
-	free(listVariable);
+	free(listNode);
 		
 }
 
-
-Variable* getVariable(LinkedListVariable* listVariable, char* name){
-	Variable* current = listVariable->first;
+/*
+Permet de recuperer un element de la list (null si il existe pas)
+*/
+Node* getNode(LinkedListNode* listNode, char* name){
+	Node* current = listNode->first;
 	while(current!=NULL){
 		if( strcmp( current->name, name) == 0)
 			return current;
@@ -49,14 +128,14 @@ Variable* getVariable(LinkedListVariable* listVariable, char* name){
 }
 
 
-void addVariable(LinkedListVariable* listVariable, Variable* var){
-	var->next = listVariable->first;
-	listVariable->first = var;
+void addNode(LinkedListNode* listNode, Node* var){
+	var->next = listNode->first;
+	listNode->first = var;
 	return;
 }
 
-void printListVariable(LinkedListVariable* listVariable){
-	Variable* current = listVariable->first;
+void printListNode(LinkedListNode* listNode){
+	Node* current = listNode->first;
 	while(current!=NULL){
 		printf("%s\n",current->name );
 		current = current->next;
@@ -67,6 +146,9 @@ void printListVariable(LinkedListVariable* listVariable){
 
 
 
+//==============================Stack function===========================================
+
+
 Stack* newStack(){
 	Stack* stack = malloc(sizeof(Stack));
 	memset(stack,0,sizeof(stack));
@@ -74,11 +156,11 @@ Stack* newStack(){
 }
 
 
-Variable* getVariableStack(Stack* stack, char* name){
-	LinkedListVariable* currentList = stack->top;
+Node* getNodeStack(Stack* stack, char* name){
+	LinkedListNode* currentList = stack->top;
 
 	while(currentList!=NULL){
-		Variable* find = getVariable(currentList,name);
+		Node* find = getNode(currentList,name);
 		if(find!=NULL)
 			return find;
 		currentList = currentList->next;
@@ -86,41 +168,41 @@ Variable* getVariableStack(Stack* stack, char* name){
 	return NULL;
 }
 
-int isAlreadyDefine(Stack* stack,Variable* var){
-	Variable* find = getVariable(stack->top,var->name);
+int isAlreadyDefine(Stack* stack,Node* var){
+	Node* find = getNode(stack->top,var->name);
 	if(find==NULL)
 		return 0;
 	return 1;
 }
 
-void addVariableStack(Stack* stack,Variable* var){
+void addNodeStack(Stack* stack,Node* var){
 	if(stack->top==NULL){
 		fprintf(stderr,"stack not initialized\n");
 		return;
 	}
-	addVariable(stack->top,var);
+	addNode(stack->top,var);
 	return;
 }
 
 void addStageToStack(Stack* stack){
-	LinkedListVariable* newStage= initList();
+	LinkedListNode* newStage= initList();
 	newStage->next = stack->top;
 	stack->top = newStage;
 }
 
 
 void removeStageToStack(Stack* stack){
-	LinkedListVariable* deleteStage = stack->top;
+	LinkedListNode* deleteStage = stack->top;
 	stack->top = deleteStage->next;
 	freeList(deleteStage);
 }
 
 void printStack(Stack* stack){
 	int i = 0;
-	LinkedListVariable* current = stack->top;
+	LinkedListNode* current = stack->top;
 	while(current!=NULL){
 		printf("stage : %d ------------\n",i );
-		printListVariable(current);
+		printListNode(current);
 		current = current->next;
 		i++;
 	}
@@ -129,28 +211,26 @@ void printStack(Stack* stack){
 }
 
 
+
 int test(){
 	Stack* stack = newStack();
 
-	Variable* var1 = malloc(sizeof(Variable));
-	memset(var1,0,sizeof(Variable));
+	Node* var1 = initNode();
 	var1->name = "tedzqsst";
 
-	Variable* var2 = malloc(sizeof(Variable));
-	memset(var2,0,sizeof(Variable));
+	Node* var2 = initNode();
 	var2->name = "dssdfdq";
 
-	Variable* var3 = malloc(sizeof(Variable));
-	memset(var3,0,sizeof(Variable));
+	Node* var3 = initNode();
 	var3->name = "third";
 
 	
 	addStageToStack(stack);
-	addVariableStack(stack,var1);
+	addNodeStack(stack,var1);
 	addStageToStack(stack);
 	addStageToStack(stack);
-	addVariableStack(stack,var2);
-	addVariableStack(stack,var3);
+	addNodeStack(stack,var2);
+	addNodeStack(stack,var3);
 	printf("%d\n", isAlreadyDefine(stack,var1));
 	printf("%d\n", isAlreadyDefine(stack,var2));
 	printf("%d\n", isAlreadyDefine(stack,var3));
