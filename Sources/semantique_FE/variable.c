@@ -3,15 +3,18 @@
 #include <string.h>
 
 
+/*Struct declaration implicite*/
+struct _TypeStruct;
+struct _Variable;
 /*====================Type des variable==============*/
 
-typedef enum { VOID_T, INT_T } UnaryType;
+typedef enum { VOID_T, INT_T } TypeUnaire;
 
 typedef struct _Type
 {
 	int isUnary;
 	TypeUnaire unaryType;
-	TypeStruct structType;
+	struct _TypeStruct* typeStruct;
 } Type;
 
 /*
@@ -27,7 +30,7 @@ a->x => x doit etre dans struct abc
 typedef struct _TypeStruct
 {
 	char* name; //nom de la structure
-	Variable* variables; //list des variable dans la structure
+	struct _Variable* variables; //list des variable dans la structure
 
 	struct _TypeStruct *next;
 } TypeStruct;
@@ -65,7 +68,7 @@ typedef struct _LinkedListNode
 {
 	Fonction* fonctionList; 
 	Variable* variableList;
-	TypeStruct* structTypeList;
+	TypeStruct* typeStructList;
 
 	struct _LinkedListNode* next;
 } LinkedListNode; 
@@ -80,6 +83,9 @@ typedef struct _Stack
 
 } Stack; 
 
+//============================ implicite declaration========================================
+void freeTypeStruct(TypeStruct* typeStruct);
+void structPrint(TypeStruct* typeStruct);
 //==============================Type Fonction===============================================
 
 Type* initType(){
@@ -89,11 +95,33 @@ Type* initType(){
 }
 
 void freeType(Type* type){
-	if(type->structType!=NULL){
-		freeTypeStruct(structType);
+	if(type==NULL){ return;}
+	if(type->typeStruct!=NULL){
+		freeTypeStruct(type->typeStruct);
 	}
 	free(type);
+}
 
+void typePrint(Type* type){
+	if(type==NULL){
+		printf("NONE");
+		return;
+	}
+	if(type->isUnary){
+		switch(type->unaryType){
+			case 0 :
+				printf("void ");
+				break;
+			case 1 :
+				printf("int ");
+				break;
+			default : 
+				break;
+		}
+	}
+	else{
+		structPrint(type->typeStruct);
+	}
 }
 
 //==============================Variable Fonction===========================================
@@ -132,8 +160,8 @@ Variable* getVariable(Variable* list,char* name){
 }
 
 void variablePrint(Variable* variable){
-		typePrint(variable->type);
-		printf("%s;\n",variable->name );
+	typePrint(variable->type);
+	printf("%s;\n",variable->name );
 }
 
 void variableListPrint(Variable* list){
@@ -152,8 +180,8 @@ Fonction* initFonction(){
 	return fonction;
 }
 
-voiid freeFonction(Fonction* fonction){
-	Fonction* current = variable;
+void freeFonction(Fonction* fonction){
+	Fonction* current = fonction;
 	while(current!=NULL){
 		Fonction* tmp =  current;
 		current = current->next;
@@ -164,9 +192,9 @@ voiid freeFonction(Fonction* fonction){
 	}
 }
 
-void addFonction(Fonction* list,Fonction* fonction){
-	fonction->next = list;
-	list = fonction;
+void addFonction(Fonction** list,Fonction* fonction){
+	fonction->next = *list;
+	*list = fonction;
 }
 
 Fonction* getFonction(Fonction* list,char* name){
@@ -183,7 +211,16 @@ Fonction* getFonction(Fonction* list,char* name){
 void fonctionPrint(Fonction* fonction){
 		typePrint(fonction->type);
 		printf("%s (",fonction->name );
+		variableListPrint(fonction->variables);
+		printf(");");
+}
 
+void fonctionListPrint(Fonction* list){
+	Fonction* current = list;
+	while(current!=NULL){
+		fonctionPrint(current);
+		current = current->next;
+	}
 }
 
 //==============================typeStruct Fonction===========================================
@@ -206,12 +243,12 @@ void freeTypeStruct(TypeStruct* typeStruct){
 	}
 }
 
-void addTypeStruct(TypeStruct* list,TypeStruct* typeStruct){
-	typeStruct->next = list;
-	list = typeStruct;
+void addTypeStruct(TypeStruct** list,TypeStruct* typeStruct){
+	typeStruct->next = *list;
+	*list = typeStruct;
 }
 
-TypeStruct* getFonction(TypeStruct* list,char* name){
+TypeStruct* getTypeStruct(TypeStruct* list,char* name){
 	TypeStruct* current = list;
 	while(current!=NULL){
 		if(strcmp(name,current->name)==0){
@@ -222,6 +259,19 @@ TypeStruct* getFonction(TypeStruct* list,char* name){
 	return NULL;
 }
 
+void structPrint(TypeStruct* typeStruct){
+	printf("Struct %s {",typeStruct->name);
+	variableListPrint(typeStruct->variables);
+	printf("};");
+}
+
+void structListPrint(TypeStruct* list){
+	TypeStruct* current = list;
+	while(current!=NULL){
+		structPrint(current);
+		current = current->next;
+	}
+}
 //==============================LinkedListNode function===========================================
 /*
 Permet d'initialiser une list
@@ -236,35 +286,25 @@ LinkedListNode* initList(){
 Permet de free une list
 */
 void freeList(LinkedListNode* listNode){
-	Node* current = listNode->first;
-	while(current!=NULL){
-		Node* tmp = current;
-		current = current->next;
-		freeNode(tmp);
-	}
+	if(listNode->fonctionList!=NULL)
+		freeFonction(listNode->fonctionList);
+	if(listNode->variableList!=NULL)
+		freeVariable(listNode->variableList);
+	if(listNode->typeStructList!=NULL)
+		freeTypeStruct(listNode->typeStructList);
 	free(listNode);
-		
 }
 
 
 
 
 void printListNode(LinkedListNode* listNode){
-	Node* current = listNode->first;
-	while(current!=NULL){
-		printf("%d",current->type);
-		if(current->isPointer) {
-			printf("*");
-		}
-		printf(" %s",current->name );
-		
-		if(current->isFonction) {
-			printf("()");
-		}
-		printf("\n");
-		current = current->next;
-	}
-	printf("end stage\n");
+	printf("-------- Function --------\n");
+	fonctionListPrint(listNode->fonctionList);
+	printf("-------- Variables --------\n");
+	variableListPrint(listNode->variableList);
+	printf("-------- Struct --------\n");
+	structListPrint(listNode->typeStructList);	
 	return;
 }
 
@@ -279,34 +319,6 @@ Stack* newStack(){
 	return stack;
 }
 
-
-Node* getNodeStack(Stack* stack, char* name){
-	LinkedListNode* currentList = stack->top;
-
-	while(currentList!=NULL){
-		Node* find = getNode(currentList,name);
-		if(find!=NULL)
-			return find;
-		currentList = currentList->next;
-	}
-	return NULL;
-}
-
-int isAlreadyDefine(Stack* stack,Node* var){
-	Node* find = getNode(stack->top,var->name);
-	if(find==NULL)
-		return 0;
-	return 1;
-}
-
-void addNodeStack(Stack* stack,Node* var){
-	if(stack->top==NULL){
-		fprintf(stderr,"stack not initialized\n");
-		return;
-	}
-	addNode(stack->top,var);
-	return;
-}
 
 void addStageToStack(Stack* stack){
 	LinkedListNode* newStage= initList();
@@ -325,8 +337,9 @@ void printStack(Stack* stack){
 	int i = 0;
 	LinkedListNode* current = stack->top;
 	while(current!=NULL){
-		printf("stage : %d ------------\n",i );
+		printf("------------------ stage : %d ---------------\n",i );
 		printListNode(current);
+		printf("------------------end stage -----------------\n");
 		current = current->next;
 		i++;
 	}
@@ -334,44 +347,44 @@ void printStack(Stack* stack){
 	return;
 }
 
+void addVariableToStack(Stack* stack, Variable* variable){
+	 addVariable(&(stack->top->variableList),variable);
+}
 
+void addFonctionToStack(Stack* stack, Fonction* fonction){
+	addFonction(&(stack->top->fonctionList), fonction);
+}
+
+void addTypeStructToStack(Stack* stack, TypeStruct* typeStruct){
+	addTypeStruct(&(stack->top->typeStructList),typeStruct);
+}
 
 int test(){
 	Stack* stack = newStack();
 
-	Node* var1 = initNode();
+	Variable* var1 = initVariable();
 	var1->name = "tedzqsst";
 
-	Node* var2 = initNode();
+	Variable* var2= initVariable();
 	var2->name = "dssdfdq";
 
-	Node* var3 = initNode();
+	Variable* var3 = initVariable();
 	var3->name = "third";
-
 	
 	addStageToStack(stack);
-	addNodeStack(stack,var1);
+	addVariableToStack(stack,var1);
 	addStageToStack(stack);
 	addStageToStack(stack);
-	addNodeStack(stack,var2);
-	addNodeStack(stack,var3);
-	printf("%d\n", isAlreadyDefine(stack,var1));
-	printf("%d\n", isAlreadyDefine(stack,var2));
-	printf("%d\n", isAlreadyDefine(stack,var3));
-
+	addVariableToStack(stack,var2);
+	addVariableToStack(stack,var3);
 	printStack(stack);
 
+		
 	removeStageToStack(stack);
 	printStack(stack);
-	printf("%d\n", isAlreadyDefine(stack,var1));
-	printf("%d\n", isAlreadyDefine(stack,var2));
-	printf("%d\n", isAlreadyDefine(stack,var3));
-
 	removeStageToStack(stack);
 	printStack(stack);
-	printf("%d\n", isAlreadyDefine(stack,var1));
-	printf("%d\n", isAlreadyDefine(stack,var2));
-	printf("%d\n", isAlreadyDefine(stack,var3));
+	
 
 	return 0;
 

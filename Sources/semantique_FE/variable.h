@@ -1,79 +1,107 @@
 #ifndef VARIABLE_H
 #define VARIABLE_H
 
-typedef enum { VOID_T, INT_T } Type;
+typedef enum { VOID_T, INT_T } UnaryType;
 
-/*
-Represente la declaration d'une variable
-*/
+typedef struct _Type
+{
+	int isUnary;
+	TypeUnaire unaryType;
+	TypeStruct typeStruct;
+} Type;
+
+typedef struct _TypeStruct
+{
+	char* name; //nom de la structure
+	Variable* variables; //list des variable dans la structure
+
+	struct _TypeStruct *next;
+} TypeStruct;
+
+
 typedef struct _Variable
 {
-	int value;
+	Type* type;
+	char* name;
+
+	struct _Variable *next;
 } Variable; 
 
-/*
-Represente la declaration d'une fonction
-*/
+
 typedef struct _Fonction
 {
-	Variable *listVar;
-} Fonction; 
-
-/*
-Represente un noeud de la liste chainée
-*/
-typedef struct _Node
-{
-	int isFonction;
-	int isPointer;
-
-	Fonction *fonction;
-	Variable *var;
-
-	Type type;
+	Type* type;
 	char *name;
 
-	struct _Node* next;
-} Node; 
+	Variable *variables; //list de variable
+	struct _Fonction *next;
+} Fonction; 
 
-/*
-Represente la list chainée + un noeud du block de la pile
-*/
 typedef struct _LinkedListNode
 {
-	Node* first;
+	Fonction* fonctionList; 
+	Variable* variableList;
+	TypeStruct* typeStructList;
+
 	struct _LinkedListNode* next;
 } LinkedListNode; 
 
-/*
-Represente la pile qui contient la liste des block
-*/
+
 typedef struct _Stack
 {
 	LinkedListNode* top;
+
 } Stack; 
 
-Stack* stack;
-Fonction* initFonction();
+//==============================Type Fonction===========================================
+
+Type* initType();
+void freeType(Type* type);
+void typePrint(Type* type);
+
+//==============================Variable Fonction===========================================
+
 Variable* initVariable();
-Node* initNode();
-void freeNode(Node* node);
+void freeVariable(Variable* variable);
+void addVariable(Variable** list,Variable* variable);
+Variable* getVariable(Variable* list,char* name);
+void variablePrint(Variable* variable);
+void variableListPrint(Variable* list);
+
+//==============================Fonction Fonction===========================================
+
+Fonction* initFonction();
+voiid freeFonction(Fonction* fonction);
+void addFonction(Fonction** list,Fonction* fonction);
+Fonction* getFonction(Fonction* list,char* name);
+void fonctionPrint(Fonction* fonction);
+void fonctionListPrint(Fonction* list);
+
+//==============================typeStruct Fonction===========================================
+
+TypeStruct* initTypeStruct();
+void freeTypeStruct(TypeStruct* typeStruct);
+void addTypeStruct(TypeStruct** list,TypeStruct* typeStruct);
+TypeStruct* getFonction(TypeStruct* list,char* name);
+void structPrint(TypeStruct* typeStruct);
+void structListPrint(TypeStruct* list);
+
+//==============================LinkedListNode function===========================================
 
 LinkedListNode* initList();
 void freeList(LinkedListNode* listNode);
-
-Node* getNode(LinkedListNode* listNode, char* name);
-void addNode(LinkedListNode* listNode, Node* var);
 void printListNode(LinkedListNode* listNode);
+
+//==============================Stack function===========================================
+Stack* stack;
+
+
 Stack* newStack();
-Node* getNodeStack(Stack* stack, char* name);
-int isAlreadyDefine(Stack* stack,Node* var);
-void addNodeStack(Stack* stack,Node* var);
 void addStageToStack(Stack* stack);
 void removeStageToStack(Stack* stack);
 void printStack(Stack* stack);
-int test();
-
-
+void addVariableToStack(Stack* stack, Variable* variable);
+void addFonctionToStack(Stack* stack, Fonction* fonction);
+void addTypeStructToStack(Stack* stack, TypeStruct* typeStruct);
 
 #endif
