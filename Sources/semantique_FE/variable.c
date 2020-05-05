@@ -3,50 +3,73 @@
 #include <string.h>
 
 
+/*====================Type des variable==============*/
 
-typedef enum { VOID_T, INT_T } Type;
+typedef enum { VOID_T, INT_T } UnaryType;
+
+typedef struct _Type
+{
+	int isUnary;
+	TypeUnaire unaryType;
+	TypeStruct structType;
+} Type;
+
+/*
+type d'une structure
+type1 variable1; -> node avec isFonction a 0;
+type2 variable2;
+type3 variable3;
+
+struct abc a;
+a->x => x doit etre dans struct abc 
+*/
+
+typedef struct _TypeStruct
+{
+	char* name; //nom de la structure
+	Variable* variables; //list des variable dans la structure
+
+	struct _TypeStruct *next;
+} TypeStruct;
+
 
 /*
 Represente la declaration d'une variable
 */
 typedef struct _Variable
 {
-	int value;
+	Type* type;
+	char* name;
+
+	struct _Variable *next;
 } Variable; 
+
 
 /*
 Represente la declaration d'une fonction
 */
 typedef struct _Fonction
 {
-	Variable *listVar;
-} Fonction; 
-
-/*
-Represente un noeud de la liste chainée
-*/
-typedef struct _Node
-{
-	int isFonction;
-	int isPointer;
-
-	Fonction *fonction;
-	Variable *var;
-
-	Type type;
+	Type* type;
 	char *name;
 
-	struct _Node* next;
-} Node; 
+	Variable *variables; //list de variable
+	struct _Fonction *next;
+} Fonction; 
+
 
 /*
 Represente la list chainée + un noeud du block de la pile
 */
 typedef struct _LinkedListNode
 {
-	Node* first;
+	Fonction* fonctionList; 
+	Variable* variableList;
+	TypeStruct* structTypeList;
+
 	struct _LinkedListNode* next;
 } LinkedListNode; 
+
 
 /*
 Represente la pile qui contient la liste des block
@@ -54,9 +77,74 @@ Represente la pile qui contient la liste des block
 typedef struct _Stack
 {
 	LinkedListNode* top;
+
 } Stack; 
 
-//==============================Fonction function===========================================
+//==============================Type Fonction===============================================
+
+Type* initType(){
+	Type* type = malloc(sizeof(Type));
+	memset(type,0,sizeof(Type));
+	return type;
+}
+
+void freeType(Type* type){
+	if(type->structType!=NULL){
+		freeTypeStruct(structType);
+	}
+	free(type);
+
+}
+
+//==============================Variable Fonction===========================================
+
+Variable* initVariable(){
+	Variable* variable = malloc(sizeof(Variable));
+	memset(variable,0,sizeof(Variable));
+	return variable;
+}
+
+void freeVariable(Variable* variable){
+	Variable* current = variable;
+	while(current!=NULL){
+		Variable* tmp =  current;
+		current = current->next;
+
+		freeType(tmp->type);
+		free(tmp);
+	}
+}
+
+void addVariable(Variable* list,Variable* variable){
+	variable->next = list;
+	list = variable;
+}
+
+Variable* getVariable(Variable* list,char* name){
+	Variable* current = list;
+	while(current!=NULL){
+		if(strcmp(name,current->name)==0){
+			return current;
+		}
+		current = current->next;
+	}
+	return NULL;
+}
+
+void variablePrint(Variable* variable){
+		typePrint(variable->type);
+		printf("%s;\n",variable->name );
+}
+
+void variableListPrint(Variable* list){
+		Variable* current = list;
+		while(current!=NULL){
+			variablePrint(current);
+			current = current->next;
+		}
+}
+
+//==============================Fonction Fonction===========================================
 
 Fonction* initFonction(){
 	Fonction* fonction = malloc(sizeof(Fonction));
@@ -64,29 +152,74 @@ Fonction* initFonction(){
 	return fonction;
 }
 
+voiid freeFonction(Fonction* fonction){
+	Fonction* current = variable;
+	while(current!=NULL){
+		Fonction* tmp =  current;
+		current = current->next;
 
-//==============================Variable function===========================================
-
-Variable* initVariable(){
-	Variable* variable = malloc(sizeof(Variable));
-	memset(variable,0,sizeof(Variable));
-	return variable;
-}
-//==============================Node function===========================================
-
-Node* initNode(){
-	Node* node = malloc(sizeof(Node));
-	memset(node,0,sizeof(Node));
-	return node;
+		freeType(tmp->type);
+		freeVariable(tmp->variables);
+		free(tmp);
+	}
 }
 
-void freeNode(Node* node){
-	if(node->isFonction && node->fonction!=NULL){
-		free(node->fonction);
+void addFonction(Fonction* list,Fonction* fonction){
+	fonction->next = list;
+	list = fonction;
+}
+
+Fonction* getFonction(Fonction* list,char* name){
+	Fonction* current = list;
+	while(current!=NULL){
+		if(strcmp(name,current->name)==0){
+			return current;
+		}
+		current = current->next;
 	}
-	else if(node->var!=NULL){
-		free(node->var);
+	return NULL;
+}
+
+void fonctionPrint(Fonction* fonction){
+		typePrint(fonction->type);
+		printf("%s (",fonction->name );
+
+}
+
+//==============================typeStruct Fonction===========================================
+
+TypeStruct* initTypeStruct(){
+	TypeStruct* typeStruct = malloc(sizeof(TypeStruct));
+	memset(typeStruct,0,sizeof(TypeStruct));
+	return typeStruct;
+}
+
+
+void freeTypeStruct(TypeStruct* typeStruct){
+	TypeStruct* current = typeStruct;
+	while(current!=NULL){
+		TypeStruct* tmp = current;
+		current=current->next;
+
+		freeVariable(tmp->variables);
+		free(tmp);
 	}
+}
+
+void addTypeStruct(TypeStruct* list,TypeStruct* typeStruct){
+	typeStruct->next = list;
+	list = typeStruct;
+}
+
+TypeStruct* getFonction(TypeStruct* list,char* name){
+	TypeStruct* current = list;
+	while(current!=NULL){
+		if(strcmp(name,current->name)==0){
+			return current;
+		}
+		current = current->next;
+	}
+	return NULL;
 }
 
 //==============================LinkedListNode function===========================================
@@ -113,25 +246,8 @@ void freeList(LinkedListNode* listNode){
 		
 }
 
-/*
-Permet de recuperer un element de la list (null si il existe pas)
-*/
-Node* getNode(LinkedListNode* listNode, char* name){
-	Node* current = listNode->first;
-	while(current!=NULL){
-		if( strcmp( current->name, name) == 0)
-			return current;
-		current = current->next;
-	}
-	return NULL;
-}
 
 
-void addNode(LinkedListNode* listNode, Node* var){
-	var->next = listNode->first;
-	listNode->first = var;
-	return;
-}
 
 void printListNode(LinkedListNode* listNode){
 	Node* current = listNode->first;
