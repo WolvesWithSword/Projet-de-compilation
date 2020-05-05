@@ -3,7 +3,7 @@ yaccFile = structfe.y
 lexFile = ANSI-C.l
 exec = parser
 testDir = ../../Tests
-testFile := $(shell find $(testDir) -name "*.c")
+
 
 
 compile_yacc:
@@ -21,6 +21,9 @@ compile: lex.yy.c
 
 lex.yy.c: compile_lex
 	
+execTest:
+	chmod +x execTest.sh
+	./execTest.sh $(testDir) $(exec)
 
 clean:
 	rm -f y.tab.h y.tab.c parser lex.yy.c
