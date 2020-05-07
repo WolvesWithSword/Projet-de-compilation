@@ -1,19 +1,23 @@
 #ifndef VARIABLE_H
 #define VARIABLE_H
 
+/*Struct declaration implicite*/
+struct _TypeStruct;
+struct _Variable;
+
 typedef enum { VOID_T, INT_T } UnaryType;
 
 typedef struct _Type
 {
 	int isUnary;
-	TypeUnaire unaryType;
-	TypeStruct typeStruct;
+	UnaryType unaryType;
+	struct _TypeStruct* typeStruct;
 } Type;
 
 typedef struct _TypeStruct
 {
 	char* name; //nom de la structure
-	Variable* variables; //list des variable dans la structure
+	struct _Variable* variables; //list des variable dans la structure
 
 	struct _TypeStruct *next;
 } TypeStruct;
@@ -53,6 +57,13 @@ typedef struct _Stack
 
 } Stack; 
 
+typedef struct _Transit
+{
+	Variable* variableD;
+	Fonction* fonctionD;
+	char* name;
+} Transit;
+
 //==============================Type Fonction===========================================
 
 Type* initType();
@@ -71,7 +82,7 @@ void variableListPrint(Variable* list);
 //==============================Fonction Fonction===========================================
 
 Fonction* initFonction();
-voiid freeFonction(Fonction* fonction);
+void freeFonction(Fonction* fonction);
 void addFonction(Fonction** list,Fonction* fonction);
 Fonction* getFonction(Fonction* list,char* name);
 void fonctionPrint(Fonction* fonction);
@@ -82,7 +93,7 @@ void fonctionListPrint(Fonction* list);
 TypeStruct* initTypeStruct();
 void freeTypeStruct(TypeStruct* typeStruct);
 void addTypeStruct(TypeStruct** list,TypeStruct* typeStruct);
-TypeStruct* getFonction(TypeStruct* list,char* name);
+TypeStruct* getTypeStruct(TypeStruct* list,char* name);
 void structPrint(TypeStruct* typeStruct);
 void structListPrint(TypeStruct* list);
 
@@ -100,8 +111,13 @@ Stack* newStack();
 void addStageToStack(Stack* stack);
 void removeStageToStack(Stack* stack);
 void printStack(Stack* stack);
+
 void addVariableToStack(Stack* stack, Variable* variable);
 void addFonctionToStack(Stack* stack, Fonction* fonction);
 void addTypeStructToStack(Stack* stack, TypeStruct* typeStruct);
+
+Variable* isInstanciateVariable(Stack* stack, char* name);
+Fonction* isDefinedFonction(Stack* stack, char* name);
+TypeStruct* isCreatedStruct(Stack* stack, char* name);
 
 #endif

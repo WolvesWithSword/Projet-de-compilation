@@ -33,35 +33,35 @@ int yyerror();
 "default"               { /* A completer */ }
 "do"                    { /* A completer */ }
 "double"                { /* A completer */ }
-"else"                  { printf("ELSE");return ELSE;  }
+"else"                  { printf("ELSE ");return ELSE;  }
 "enum"                  { /* A completer */ }
-"extern"                { printf("EXTERN");return EXTERN; }
+"extern"                { printf("EXTERN ");return EXTERN; }
 "float"                 { /* A completer */ }
-"for"                   { printf("FOR");return FOR;}
+"for"                   { printf("FOR ");return FOR;}
 "goto"                  { /* A completer */ }
-"if"                    { printf("IF");return IF; }
-"int"                   { printf("INT");return INT; }
+"if"                    { printf("IF ");return IF; }
+"int"                   { printf("INT ");return INT; }
 "long"                  { /* A completer */ }
 "register"              { /* A completer */ }
-"return"                { printf("RETURN"); return RETURN; }
+"return"                { printf("RETURN "); return RETURN; }
 "short"                 { /* A completer */ }
 "signed"                { /* A completer */ }
-"sizeof"                { printf("SIZEOF"); return SIZEOF; }
+"sizeof"                { printf("SIZEOF "); return SIZEOF; }
 "static"                { /* A completer */ }
-"struct"                { printf("STRUCT"); return STRUCT; }
+"struct"                { printf("STRUCT "); return STRUCT; }
 "switch"                { /* A completer */ }
 "typedef"               { /* A completer */ }
 "union"                 { /* A completer */ }
 "unsigned"              { /* A completer */ }
-"void"                  { printf("VOID"); return VOID;}
+"void"                  { printf("VOID "); return VOID;}
 "volatile"              { /* A completer */ }
-"while"                 { printf("WHILE"); return WHILE;}
+"while"                 { printf("WHILE "); return WHILE;}
 
-{L}({L}|{D})*           {yylval.name = strdup(yytext); printf("IDENTIFIER"); return IDENTIFIER;}
+{L}({L}|{D})*           {yylval.name = strdup(yytext); printf("IDENTIFIER "); return IDENTIFIER;}
 
 0[xX]{H}+{IS}?          { /* A completer */ }
 0{D}+{IS}?              { /* A completer */ }
-{D}+{IS}?               {yylval.value = atoi(yytext); printf("CONSTANT"); return CONSTANT;}
+{D}+{IS}?               {yylval.value = atoi(yytext); printf("CONSTANT "); return CONSTANT;}
 L?'(\\.|[^\\'])+'       { /* A completer */ }
 
 {D}+{E}{FS}?            { /* A completer */ }
@@ -85,13 +85,13 @@ L?\"(\\.|[^\\"])*\"     { /* A completer */ }
 "<<"                    { /* A completer */ }
 "++"                    { /* A completer */ }
 "--"                    { /* A completer */ }
-"->"                    { printf("PTR_OP");return PTR_OP; }
-"&&"                    { printf("AND_OP");return AND_OP; }
-"||"                    { printf("OR_OP");return OR_OP; }
-"<="                    { printf("LE_OP"); return LE_OP;}
-">="                    { printf("GE_OP"); return GE_OP;}
-"=="                    { printf("EQ_OP"); return EQ_OP;}
-"!="                    { printf("NE_OP"); return NE_OP;}
+"->"                    { printf("PTR_OP ");return PTR_OP; }
+"&&"                    { printf("AND_OP ");return AND_OP; }
+"||"                    { printf("OR_OP ");return OR_OP; }
+"<="                    { printf("LE_OP "); return LE_OP;}
+">="                    { printf("GE_OP "); return GE_OP;}
+"=="                    { printf("EQ_OP "); return EQ_OP;}
+"!="                    { printf("NE_OP "); return NE_OP;}
 
 "("|")"|"{"|"}"   { printf("%c",yytext[0]);return yytext[0];}
 "*"|"-"|"/"|"+"   { printf("%c",yytext[0]);return yytext[0];}

@@ -12,8 +12,9 @@
 %union {
 	char* name;
 	int value;
-	Node *tmpNode;
-	Type type;
+	Transit transit;
+	Type* type;
+	TypeStruct* typeStruct;
 }
 
 %token <name> IDENTIFIER
@@ -29,8 +30,9 @@
 %nonassoc LOWER_THAN_ELSE
 %nonassoc ELSE
 
-%type <tmpNode> direct_declarator
-%type <tmpNode> declarator
+%type <transit> direct_declarator
+%type <transit> declarator
+%type <typeStruct> struct_specifier
 %type <type> declaration_specifiers
 %type <type> type_specifier
 
@@ -110,26 +112,40 @@ expression
         ;
 
 declaration
-        : declaration_specifiers declarator ';' {$2->type = $1; addNodeStack(stack,$2);}
+        : declaration_specifiers declarator ';' {
+		if($2.variableD == NULL && $2.fonctionD == NULL && $2.name != NULL) {
+			Variable* var = initVariable();
+			var->name = $2.name;
+			addVariableToStack(stack,var);
+		}
+		if($2.variableD == NULL && $2.fonctionD != NULL && $2.name != NULL) {
+			addFonctionToStack(stack,$2.fonctionD);
+		}
+	}
         | struct_specifier ';'
         ;
 
 declaration_specifiers
-        : EXTERN type_specifier {$$ = $2; /* il faudra modifier EXTERN*/}
+        : EXTERN type_specifier {$$ = $2;}
         | type_specifier {$$ = $1;}
         ;
 
 type_specifier
-        : VOID {$$ = VOID_T;}
-        | INT  {$$ = INT_T;}
-        | struct_specifier 
+        : VOID {Type* tp = initType(); tp->unaryType = VOID_T; tp->isUnary = 1; $$ = tp;}
+        | INT  {Type* tp = initType(); tp->unaryType = INT_T; tp->isUnary = 1; $$ = tp;}
+        | struct_specifier  {Type* tp = initType(); tp->typeStruct = $1; $$ = tp;}
         ;
 
 struct_specifier
-        : STRUCT IDENTIFIER '{' struct_declaration_list '}'
-        | STRUCT '{' struct_declaration_list '}'
-        | STRUCT IDENTIFIER
+        : STRUCT IDENTIFIER {TypeStruct* ts = initTypeStruct(); ts->name = $2; addTypeStructToStack(stack,ts); $<typeStruct>$ = ts;} '{' struct_declaration_list '}' 
+		{$$ = $<typeStruct>3;}
+        | STRUCT '{' struct_declaration_list '}' {printf("		NOT IMPLEMENTED		");/*TypeStruct* ts = initTypeStruct(); ts->name = "_";
+		Transit t; t.variableD = NULL; t.fonctionD = NULL; t.typeStructD = ts; t.name = "_"; $$ = t;*/}
+        | STRUCT IDENTIFIER {TypeStruct* ts = isCreatedStruct(stack,$2); 
+		if(ts == NULL) {fprintf(stderr,"\n %s : Struct not declared before\n",$2); yyerror("ERROR");}; $$ = ts;}
         ;
+
+
 
 struct_declaration_list
         : struct_declaration
@@ -141,15 +157,17 @@ struct_declaration
         ;
 
 declarator
-        : '*' direct_declarator {$2->isPointer = 1; $$ = $2; /*c'est un pointeur a fair*/}
+        : '*' direct_declarator {$$ = $2;}
         | direct_declarator {$$ = $1;}
         ;
 
 direct_declarator
-        : IDENTIFIER {Node* node = initNode(); node->name = $1; $$ = node;}
+        : IDENTIFIER {Transit t; t.variableD = NULL; t.fonctionD = NULL; t.name = $1; $$ = t; }
         | '(' declarator ')' {$$=$2;}  
-        | direct_declarator '(' parameter_list ')' {Node* node = $1;node->isFonction = 1;/*affecter les parametre*/$$ = node;}
-        | direct_declarator '(' ')' {Node* node = $1;node->isFonction = 1;$$ = node;}
+        | direct_declarator '(' parameter_list ')' {Transit t1 = $1; Fonction* f = initFonction(); f->name = t1.name;
+		Transit t2; t2.variableD = NULL; t2.fonctionD = f; t2.name = t1.name; $$ = t2; }
+        | direct_declarator '(' ')' {Transit t1 = $1; Fonction* f = initFonction(); f->name = t1.name;
+		Transit t2; t2.variableD = NULL; t2.fonctionD = f; t2.name = t1.name; $$ = t2; }
         ;
 
 parameter_list
@@ -222,7 +240,9 @@ external_declaration
         ;
 
 function_definition
-        : declaration_specifiers declarator {$2->type = $1; addNodeStack(stack,$2);} compound_statement
+        : declaration_specifiers declarator {if($2.fonctionD == NULL) {
+		fprintf(stderr,"\n %s : Not a function definition \n",$2.name); yyerror("ERROR");};
+		addFonctionToStack(stack,$2.fonctionD);} compound_statement
         ;
 
 %%

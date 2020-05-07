@@ -8,12 +8,12 @@ struct _TypeStruct;
 struct _Variable;
 /*====================Type des variable==============*/
 
-typedef enum { VOID_T, INT_T } TypeUnaire;
+typedef enum { VOID_T, INT_T } UnaryType;
 
 typedef struct _Type
 {
 	int isUnary;
-	TypeUnaire unaryType;
+	UnaryType unaryType;
 	struct _TypeStruct* typeStruct;
 } Type;
 
@@ -83,6 +83,13 @@ typedef struct _Stack
 
 } Stack; 
 
+typedef struct _Transit
+{
+	Variable* variableD;
+	Fonction* fonctionD;
+	char* name;
+} Transit;
+
 //============================ implicite declaration========================================
 void freeTypeStruct(TypeStruct* typeStruct);
 void structPrint(TypeStruct* typeStruct);
@@ -138,14 +145,14 @@ void freeVariable(Variable* variable){
 		Variable* tmp =  current;
 		current = current->next;
 
-		freeType(tmp->type);
+		//freeType(tmp->type);
 		free(tmp);
 	}
 }
 
-void addVariable(Variable* list,Variable* variable){
-	variable->next = list;
-	list = variable;
+void addVariable(Variable** list,Variable* variable){
+	variable->next = *list;
+	*list = variable;
 }
 
 Variable* getVariable(Variable* list,char* name){
@@ -186,7 +193,7 @@ void freeFonction(Fonction* fonction){
 		Fonction* tmp =  current;
 		current = current->next;
 
-		freeType(tmp->type);
+		//freeType(tmp->type);
 		freeVariable(tmp->variables);
 		free(tmp);
 	}
@@ -212,7 +219,7 @@ void fonctionPrint(Fonction* fonction){
 		typePrint(fonction->type);
 		printf("%s (",fonction->name );
 		variableListPrint(fonction->variables);
-		printf(");");
+		printf(");\n");
 }
 
 void fonctionListPrint(Fonction* list){
@@ -262,7 +269,7 @@ TypeStruct* getTypeStruct(TypeStruct* list,char* name){
 void structPrint(TypeStruct* typeStruct){
 	printf("Struct %s {",typeStruct->name);
 	variableListPrint(typeStruct->variables);
-	printf("};");
+	printf("};\n");
 }
 
 void structListPrint(TypeStruct* list){
@@ -358,6 +365,43 @@ void addFonctionToStack(Stack* stack, Fonction* fonction){
 void addTypeStructToStack(Stack* stack, TypeStruct* typeStruct){
 	addTypeStruct(&(stack->top->typeStructList),typeStruct);
 }
+
+Variable* isInstanciateVariable(Stack* stack, char* name){
+	LinkedListNode* current = stack->top;
+	while(current!=NULL){
+		Variable* res = getVariable(current->variableList,name);
+		if(res != NULL){
+			return res;
+		}
+		current = current->next;
+	}
+	return NULL;
+}
+
+Fonction* isDefinedFonction(Stack* stack, char* name){
+	LinkedListNode* current = stack->top;
+	while(current!=NULL){
+		Fonction* res = getFonction(current->fonctionList,name);
+		if(res != NULL){
+			return res;
+		}
+		current = current->next;
+	}
+	return NULL;
+}
+
+TypeStruct* isCreatedStruct(Stack* stack, char* name){
+	LinkedListNode* current = stack->top;
+	while(current!=NULL){
+		TypeStruct* res = getTypeStruct(current->typeStructList,name);
+		if(res != NULL){
+			return res;
+		}
+		current = current->next;
+	}
+	return NULL;
+}
+
 
 int test(){
 	Stack* stack = newStack();
