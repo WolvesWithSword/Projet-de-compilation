@@ -6,6 +6,7 @@
 /*Struct declaration implicite*/
 struct _TypeStruct;
 struct _Variable;
+struct _ParameterType;
 /*====================Type des variable==============*/
 
 typedef enum { VOID_T, INT_T } UnaryType;
@@ -13,6 +14,9 @@ typedef enum { VOID_T, INT_T } UnaryType;
 typedef struct _Type
 {
 	int isUnary;
+	int isPtr;
+	int isFunction;
+	struct _ParameterType* parametersType;
 	UnaryType unaryType;
 	struct _TypeStruct* typeStruct;
 } Type;
@@ -34,6 +38,15 @@ typedef struct _TypeStruct
 
 	struct _TypeStruct *next;
 } TypeStruct;
+
+/*
+list des type des parametre d'une fonction
+*/
+typedef struct _ParameterType
+{
+	Type* type;
+	struct _ParameterType *next;
+} ParameterType;
 
 
 /*
@@ -69,6 +82,7 @@ typedef struct _LinkedListNode
 	Fonction* fonctionList; 
 	Variable* variableList;
 	TypeStruct* typeStructList;
+	Fonction* currentFunction;
 
 	struct _LinkedListNode* next;
 } LinkedListNode; 
@@ -88,11 +102,15 @@ typedef struct _Transit
 	Variable* variableD;
 	Fonction* fonctionD;
 	char* name;
+	int isPtr;
 } Transit;
 
 //============================ implicite declaration========================================
 void freeTypeStruct(TypeStruct* typeStruct);
 void structPrint(TypeStruct* typeStruct);
+int compareParameterType(ParameterType* type1,ParameterType* type2);
+void freeParameterType(ParameterType* list);
+void parameterTypePrint(ParameterType* paramList);
 //==============================Type Fonction===============================================
 
 Type* initType(){
@@ -106,6 +124,7 @@ void freeType(Type* type){
 	if(type->typeStruct!=NULL){
 		freeTypeStruct(type->typeStruct);
 	}
+	freeParameterType(type->parametersType);
 	free(type);
 }
 
@@ -114,6 +133,10 @@ void typePrint(Type* type){
 		printf("NONE");
 		return;
 	}
+	if(type->isFunction){
+		parameterTypePrint(type->parametersType);
+	}
+		
 	if(type->isUnary){
 		switch(type->unaryType){
 			case 0 :
@@ -129,6 +152,35 @@ void typePrint(Type* type){
 	else{
 		printf("Struct %s ",type->typeStruct->name);
 	}
+	if(type->isPtr) printf("*");
+}
+
+
+/*
+appeler un fonction ou un pointeur de fonction reviens au meme
+cette fonction vas donc permetre de s'avoir si c'est le meme type en 
+ignorant si c'est un pointeur ou pas
+*/
+int compareTypeWithoutPointer(Type* type1, Type* type2){
+	if(type1->isUnary!=type2->isUnary) return 0;
+	if(type1->isFunction!=type2->isFunction) return 0;
+
+	if(type1->isUnary==1){
+		if(type1->unaryType != type2->unaryType)
+			return 0;
+	}
+	//une structure peut avoir que une adresse (a verif)
+	else if(type1->typeStruct != type2->typeStruct) return 0;
+
+	//si c'est des fonction on compare les type de parametre
+	if(type1->isFunction==1)
+		return compareParameterType(type1->parametersType,type2->parametersType);
+	
+}
+
+
+int compareType(Type* type1, Type* type2){
+	return ((type1->isPtr == type2->isPtr) && compareTypeWithoutPointer(type1,type2));
 }
 
 //==============================Variable Fonction===========================================
@@ -151,8 +203,16 @@ void freeVariable(Variable* variable){
 }
 
 void addVariable(Variable** list,Variable* variable){
-	variable->next = *list;
-	*list = variable;
+	if(*list==NULL){
+		*list = variable;
+		return;
+	}
+	Variable* current = *list;
+	while(current->next!=NULL){
+		current = current->next;
+	}
+	current->next = variable;
+		
 }
 
 Variable* getVariable(Variable* list,char* name){
@@ -279,6 +339,73 @@ void structListPrint(TypeStruct* list){
 		current = current->next;
 	}
 }
+
+//==============================parameterType list===========================================
+ParameterType* initParameterType(){
+	ParameterType* parameterType = malloc(sizeof(ParameterType));
+	memset(parameterType,0,sizeof(parameterType));
+	return parameterType;
+}
+
+void freeParameterType(ParameterType* list){
+	ParameterType* current = list;
+	while(current!=NULL){
+		ParameterType* tmp = current;
+		current=current->next;
+
+		freeType(tmp->type);
+		free(tmp);
+	}
+}
+	
+
+void addParameterType(ParameterType** list,Type* type){
+	ParameterType* newParam = initParameterType();
+	newParam->type = type;
+	if(*list==NULL){
+		*list = newParam;
+		return;
+	}
+	ParameterType* current = *list;
+	while(current->next!=NULL){
+		current = current->next;
+	}
+	current->next = newParam;
+}
+
+int compareParameterType(ParameterType* type1, ParameterType* type2){
+	while(type1!=NULL || type2!=NULL){
+		if(compareType(type1->type,type2->type)){
+			type1 = type1->next;
+			type2 = type2->next;
+		}
+		else return 0;
+	}
+	if(type1!=NULL && type2==NULL || type1==NULL && type2!=NULL) return 0;
+	return 1;
+	
+}
+
+ParameterType* variableToParameterType(Variable* varList){
+	ParameterType* allType = NULL;
+	while(varList!=NULL){
+		addParameterType(&allType,varList->type);
+		varList = varList->next;	
+	}
+	return allType;
+}
+
+void parameterTypePrint(ParameterType* paramList){
+	printf("( ");
+	while(paramList!=NULL){
+		typePrint(paramList->type);
+		paramList = paramList->next;
+		if(paramList!=NULL) printf(" , ");
+	}
+	printf(" ) =>");
+
+}
+
 //==============================LinkedListNode function===========================================
 /*
 Permet d'initialiser une list
@@ -368,6 +495,15 @@ void addTypeStructToStack(Stack* stack, TypeStruct* typeStruct){
 
 Variable* isInstanciateVariable(Stack* stack, char* name){
 	LinkedListNode* current = stack->top;
+	//verification dans la fonction courrante si elle existe
+	if(current->currentFunction!=NULL){
+		Variable* res = getVariable(current->currentFunction->variables,name);
+		if(res != NULL){
+			return res;
+		}
+	}
+
+	//verification dans la stack
 	while(current!=NULL){
 		Variable* res = getVariable(current->variableList,name);
 		if(res != NULL){
@@ -404,8 +540,12 @@ TypeStruct* isCreatedStruct(Stack* stack, char* name){
 
 int isExistingInStageName(Stack* stack, char* name){
 	LinkedListNode* current = stack->top;
+
 	Variable* res1 = getVariable(current->variableList, name);
 	Fonction* res2 = getFonction(current->fonctionList, name);
+	//defini dans la fonction courrante
+	Variable* res3 = NULL;
+	if(current->currentFunction!=NULL) res3 = getVariable(current->currentFunction->variables,name);
 
 	if(res1 == NULL && res2 == NULL) return 0;
 	return 1;
@@ -422,6 +562,23 @@ int isExistingInStageFunction(Stack* stack, Fonction* fonction){
 	//TODO Check les parametres, la predef...
 	return isExistingInStageName(stack, fonction->name);
 }
+
+Type* getLastDefineType(Stack* stack, char* name){
+	LinkedListNode* current = stack->top;
+	//defini dans la fonction courrante
+	if(current->currentFunction!=NULL){
+		Variable* res = getVariable(current->currentFunction->variables,name);
+		if(res!=NULL) return res->type;	
+	}
+	//c'est une variable
+	Variable* res = getVariable(current->variableList, name);
+	if(res!=NULL) return res->type;
+	
+	//c'est une fonction
+	Fonction* res2 = getFonction(current->fonctionList, name);
+	if(res!=NULL) return res2->type;
+}
+
 
 int test(){
 	Stack* stack = newStack();

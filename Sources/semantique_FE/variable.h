@@ -4,12 +4,16 @@
 /*Struct declaration implicite*/
 struct _TypeStruct;
 struct _Variable;
+struct _ParameterType;
 
 typedef enum { VOID_T, INT_T } UnaryType;
 
 typedef struct _Type
 {
 	int isUnary;
+	int isPtr;
+	int isFunction;
+	struct _ParameterType* parametersType;
 	UnaryType unaryType;
 	struct _TypeStruct* typeStruct;
 } Type;
@@ -21,6 +25,15 @@ typedef struct _TypeStruct
 
 	struct _TypeStruct *next;
 } TypeStruct;
+
+/*
+list des type des parametre d'une fonction
+*/
+typedef struct _ParameterType
+{
+	Type* type;
+	struct _ParameterType *next;
+} ParameterType;
 
 
 typedef struct _Variable
@@ -46,6 +59,7 @@ typedef struct _LinkedListNode
 	Fonction* fonctionList; 
 	Variable* variableList;
 	TypeStruct* typeStructList;
+	Fonction* currentFunction;
 
 	struct _LinkedListNode* next;
 } LinkedListNode; 
@@ -62,6 +76,7 @@ typedef struct _Transit
 	Variable* variableD;
 	Fonction* fonctionD;
 	char* name;
+	int isPtr;
 } Transit;
 
 //==============================Type Fonction===========================================
@@ -69,6 +84,8 @@ typedef struct _Transit
 Type* initType();
 void freeType(Type* type);
 void typePrint(Type* type);
+int compareType(Type* type1, Type* type2);
+int compareTypeWithoutPointer(Type* type1, Type* type2);
 
 //==============================Variable Fonction===========================================
 
@@ -96,6 +113,14 @@ void addTypeStruct(TypeStruct** list,TypeStruct* typeStruct);
 TypeStruct* getTypeStruct(TypeStruct* list,char* name);
 void structPrint(TypeStruct* typeStruct);
 void structListPrint(TypeStruct* list);
+
+//==============================parameterType list===========================================
+ParameterType* initParameterType();
+void freeParameterType(ParameterType* list);
+void addParameterType(ParameterType** list,Type* type);
+int compareParameterType(ParameterType* type1, ParameterType* type2);
+ParameterType* variableToParameterType(Variable* varList);
+void parameterTypePrint(ParameterType* paramList);
 
 //==============================LinkedListNode function===========================================
 

@@ -45,22 +45,22 @@
 %%
 
 primary_expression
-        : IDENTIFIER
+        : IDENTIFIER {/*identifieur fonction ou variable*/}
         | CONSTANT
         | '(' expression ')'
         ;
 
 postfix_expression
         : primary_expression
-        | postfix_expression '(' ')'
-        | postfix_expression '(' argument_expression_list ')'
+        | postfix_expression '(' ')' {/*appelle d'une fonction*/}
+        | postfix_expression '(' argument_expression_list ')' {/*appelle d'une fonction*/}
         | postfix_expression '.' IDENTIFIER
-        | postfix_expression PTR_OP IDENTIFIER
+        | postfix_expression PTR_OP IDENTIFIER 
         ;
 
 argument_expression_list
-        : expression
-        | argument_expression_list ',' expression
+        : expression 
+        | argument_expression_list ',' expression {/*Liste des argument d'un appelle de fonction*/}
         ;
 
 unary_expression
@@ -120,8 +120,9 @@ declaration
         : declaration_specifiers declarator ';' {
 		if($2.variableD == NULL && $2.fonctionD == NULL && $2.name != NULL) {
 
-			if(isExistingInStageName(stack,$2.name)) {fprintf(stderr,"\nPrevious declaration of %s was here\n",$2.name); yyerror("ERROR");} 			
-
+			if(isExistingInStageName(stack,$2.name)) {fprintf(stderr,"\nPrevious declaration of %s was here\n",$2.name); yyerror("ERROR");} 	
+		
+			$1->isPtr = $2.isPtr;
 			Variable* var = initVariable();
 			var->name = $2.name;
 			var->type = $1;
@@ -131,7 +132,10 @@ declaration
 
 			if(isExistingInStageFunction(stack,$2.fonctionD)) {fprintf(stderr,"\nPrevious declaration of %s was here\n",$2.name); yyerror("ERROR");} 
 
+			$1->isPtr = $2.isPtr;
 			$2.fonctionD->type = $1;
+			$2.fonctionD->type->isFunction = 1;
+			$2.fonctionD->type->parametersType = variableToParameterType($2.fonctionD->variables);
 			addFonctionToStack(stack,$2.fonctionD);
 		}
 		else{}
@@ -171,6 +175,8 @@ struct_declaration_list
 
 struct_declaration
         : type_specifier declarator ';' {if($2.variableD == NULL && $2.fonctionD == NULL && $2.name != NULL) { 
+
+		$1->isPtr = $2.isPtr;
 		Variable* var = initVariable(); var->type = $1; var->name = $2.name; $$ = var;
 	}else{
 		fprintf(stderr,"\n %s : Struct parameters can't be functions declaration\n",$2.name); yyerror("ERROR");	
@@ -178,17 +184,23 @@ struct_declaration
         ;
 
 declarator
-        : '*' direct_declarator {$$ = $2;}
+        : '*' direct_declarator {
+		if($2.isPtr){ /*c'est un pointeur de pointeur*/
+			fprintf(stderr,"\n %s : Can be use pointeur of pointeur\n",$2.name); yyerror("ERROR");	
+		}
+		$2.isPtr=1;
+		$$ = $2;
+	}
         | direct_declarator {$$ = $1;}
         ;
 
 direct_declarator
-        : IDENTIFIER {Transit t; t.variableD = NULL; t.fonctionD = NULL; t.name = $1; $$ = t; }
+        : IDENTIFIER {Transit t; t.isPtr = 0;  t.variableD = NULL; t.fonctionD = NULL; t.name = $1; $$ = t; }
         | '(' declarator ')' {$$=$2;}  
         | direct_declarator '(' parameter_list ')' {Transit t1 = $1; Fonction* f = initFonction(); f->name = t1.name; f->variables = $3;
-		Transit t2; t2.variableD = NULL; t2.fonctionD = f; t2.name = t1.name; $$ = t2; }
+		Transit t2; t2.isPtr = 0; t2.variableD = NULL; t2.fonctionD = f; t2.name = t1.name; $$ = t2; }
         | direct_declarator '(' ')' {Transit t1 = $1; Fonction* f = initFonction(); f->name = t1.name;
-		Transit t2; t2.variableD = NULL; t2.fonctionD = f; t2.name = t1.name; $$ = t2; }
+		Transit t2; t2.isPtr = 0; t2.variableD = NULL; t2.fonctionD = f; t2.name = t1.name; $$ = t2; }
         ;
 
 parameter_list
@@ -198,6 +210,7 @@ parameter_list
 
 parameter_declaration
         : declaration_specifiers declarator {if($2.variableD == NULL && $2.fonctionD == NULL && $2.name != NULL) { 
+		$1->isPtr = $2.isPtr;
 		Variable* var = initVariable(); var->type = $1; var->name = $2.name; $$ = var;
 	}else{
 		fprintf(stderr,"\n %s : Parameters can't be functions declaration\n",$2.name); yyerror("ERROR");	
@@ -270,8 +283,14 @@ function_definition
 
 		if(isExistingInStageFunction(stack,$2.fonctionD)) {fprintf(stderr,"\nPrevious declaration of %s was here\n",$2.name); yyerror("ERROR");} 
 
+		$1->isPtr = $2.isPtr;
 		$2.fonctionD->type = $1;
-		addFonctionToStack(stack,$2.fonctionD);} compound_statement
+		$2.fonctionD->type->isFunction = 1;
+		$2.fonctionD->type->parametersType = variableToParameterType($2.fonctionD->variables);
+		addFonctionToStack(stack,$2.fonctionD);
+		stack->top->currentFunction = $2.fonctionD;
+		} 
+		compound_statement
         ;
 
 %%
