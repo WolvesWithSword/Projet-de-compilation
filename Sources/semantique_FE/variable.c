@@ -127,7 +127,7 @@ void typePrint(Type* type){
 		}
 	}
 	else{
-		structPrint(type->typeStruct);
+		printf("Struct %s ",type->typeStruct->name);
 	}
 }
 
@@ -217,7 +217,7 @@ Fonction* getFonction(Fonction* list,char* name){
 
 void fonctionPrint(Fonction* fonction){
 		typePrint(fonction->type);
-		printf("%s (",fonction->name );
+		printf("%s (\n",fonction->name );
 		variableListPrint(fonction->variables);
 		printf(");\n");
 }
@@ -267,9 +267,9 @@ TypeStruct* getTypeStruct(TypeStruct* list,char* name){
 }
 
 void structPrint(TypeStruct* typeStruct){
-	printf("Struct %s {",typeStruct->name);
+	printf("Struct %s {\n",typeStruct->name);
 	variableListPrint(typeStruct->variables);
-	printf("};\n");
+	printf("}\n");
 }
 
 void structListPrint(TypeStruct* list){
@@ -402,6 +402,26 @@ TypeStruct* isCreatedStruct(Stack* stack, char* name){
 	return NULL;
 }
 
+int isExistingInStageName(Stack* stack, char* name){
+	LinkedListNode* current = stack->top;
+	Variable* res1 = getVariable(current->variableList, name);
+	Fonction* res2 = getFonction(current->fonctionList, name);
+
+	if(res1 == NULL && res2 == NULL) return 0;
+	return 1;
+}
+
+int isExistingInStageStruct(Stack* stack, TypeStruct* ts){
+	TypeStruct* res1 = getTypeStruct(stack->top->typeStructList, ts->name);
+
+	if(res1 == NULL) return 0;
+	return 1;
+}
+
+int isExistingInStageFunction(Stack* stack, Fonction* fonction){
+	//TODO Check les parametres, la predef...
+	return isExistingInStageName(stack, fonction->name);
+}
 
 int test(){
 	Stack* stack = newStack();

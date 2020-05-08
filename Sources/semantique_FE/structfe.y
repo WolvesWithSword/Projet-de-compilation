@@ -14,6 +14,7 @@
 	int value;
 	Transit transit;
 	Type* type;
+	Variable* var;
 	TypeStruct* typeStruct;
 }
 
@@ -35,6 +36,10 @@
 %type <typeStruct> struct_specifier
 %type <type> declaration_specifiers
 %type <type> type_specifier
+%type <var> parameter_list
+%type <var> parameter_declaration
+%type <var> struct_declaration_list
+%type <var> struct_declaration
 
 %start program
 %%
@@ -114,13 +119,22 @@ expression
 declaration
         : declaration_specifiers declarator ';' {
 		if($2.variableD == NULL && $2.fonctionD == NULL && $2.name != NULL) {
+
+			if(isExistingInStageName(stack,$2.name)) {fprintf(stderr,"\nPrevious declaration of %s was here\n",$2.name); yyerror("ERROR");} 			
+
 			Variable* var = initVariable();
 			var->name = $2.name;
+			var->type = $1;
 			addVariableToStack(stack,var);
 		}
 		if($2.variableD == NULL && $2.fonctionD != NULL && $2.name != NULL) {
+
+			if(isExistingInStageFunction(stack,$2.fonctionD)) {fprintf(stderr,"\nPrevious declaration of %s was here\n",$2.name); yyerror("ERROR");} 
+
+			$2.fonctionD->type = $1;
 			addFonctionToStack(stack,$2.fonctionD);
 		}
+		else{}
 	}
         | struct_specifier ';'
         ;
@@ -137,8 +151,11 @@ type_specifier
         ;
 
 struct_specifier
-        : STRUCT IDENTIFIER {TypeStruct* ts = initTypeStruct(); ts->name = $2; addTypeStructToStack(stack,ts); $<typeStruct>$ = ts;} '{' struct_declaration_list '}' 
-		{$$ = $<typeStruct>3;}
+        : STRUCT IDENTIFIER {TypeStruct* ts = initTypeStruct(); ts->name = $2; 
+		if(isExistingInStageStruct(stack,ts)) {fprintf(stderr,"\n %s : Struct already declared\n",$2); yyerror("ERROR");}
+		addTypeStructToStack(stack,ts); $<typeStruct>$ = ts;} 
+	'{' struct_declaration_list '}' 
+		{$<typeStruct>3->variables = $5; $$ = $<typeStruct>3;}
         | STRUCT '{' struct_declaration_list '}' {printf("		NOT IMPLEMENTED		");/*TypeStruct* ts = initTypeStruct(); ts->name = "_";
 		Transit t; t.variableD = NULL; t.fonctionD = NULL; t.typeStructD = ts; t.name = "_"; $$ = t;*/}
         | STRUCT IDENTIFIER {TypeStruct* ts = isCreatedStruct(stack,$2); 
@@ -148,12 +165,16 @@ struct_specifier
 
 
 struct_declaration_list
-        : struct_declaration
-        | struct_declaration_list struct_declaration
+        : struct_declaration {$$ = $1;}
+        | struct_declaration_list struct_declaration {addVariable(&$2,$1); $$ = $2;}
         ;
 
 struct_declaration
-        : type_specifier declarator ';'
+        : type_specifier declarator ';' {if($2.variableD == NULL && $2.fonctionD == NULL && $2.name != NULL) { 
+		Variable* var = initVariable(); var->type = $1; var->name = $2.name; $$ = var;
+	}else{
+		fprintf(stderr,"\n %s : Struct parameters can't be functions declaration\n",$2.name); yyerror("ERROR");	
+	}}
         ;
 
 declarator
@@ -164,19 +185,23 @@ declarator
 direct_declarator
         : IDENTIFIER {Transit t; t.variableD = NULL; t.fonctionD = NULL; t.name = $1; $$ = t; }
         | '(' declarator ')' {$$=$2;}  
-        | direct_declarator '(' parameter_list ')' {Transit t1 = $1; Fonction* f = initFonction(); f->name = t1.name;
+        | direct_declarator '(' parameter_list ')' {Transit t1 = $1; Fonction* f = initFonction(); f->name = t1.name; f->variables = $3;
 		Transit t2; t2.variableD = NULL; t2.fonctionD = f; t2.name = t1.name; $$ = t2; }
         | direct_declarator '(' ')' {Transit t1 = $1; Fonction* f = initFonction(); f->name = t1.name;
 		Transit t2; t2.variableD = NULL; t2.fonctionD = f; t2.name = t1.name; $$ = t2; }
         ;
 
 parameter_list
-        : parameter_declaration {/*creation d'une liste de parametre*/}
-        | parameter_list ',' parameter_declaration {/*concatener les liste*/}
+        : parameter_declaration {$$ = $1;}
+        | parameter_list ',' parameter_declaration {addVariable(&$3,$1); $$ = $3;}
         ;
 
 parameter_declaration
-        : declaration_specifiers declarator
+        : declaration_specifiers declarator {if($2.variableD == NULL && $2.fonctionD == NULL && $2.name != NULL) { 
+		Variable* var = initVariable(); var->type = $1; var->name = $2.name; $$ = var;
+	}else{
+		fprintf(stderr,"\n %s : Parameters can't be functions declaration\n",$2.name); yyerror("ERROR");	
+	}}
         ;
 
 statement
@@ -240,8 +265,12 @@ external_declaration
         ;
 
 function_definition
-        : declaration_specifiers declarator {if($2.fonctionD == NULL) {
-		fprintf(stderr,"\n %s : Not a function definition \n",$2.name); yyerror("ERROR");};
+        : declaration_specifiers declarator {
+		if($2.fonctionD == NULL) {fprintf(stderr,"\n %s : Not a function definition \n",$2.name); yyerror("ERROR");};
+
+		if(isExistingInStageFunction(stack,$2.fonctionD)) {fprintf(stderr,"\nPrevious declaration of %s was here\n",$2.name); yyerror("ERROR");} 
+
+		$2.fonctionD->type = $1;
 		addFonctionToStack(stack,$2.fonctionD);} compound_statement
         ;
 

@@ -120,4 +120,8 @@ Variable* isInstanciateVariable(Stack* stack, char* name);
 Fonction* isDefinedFonction(Stack* stack, char* name);
 TypeStruct* isCreatedStruct(Stack* stack, char* name);
 
+int isExistingInStageName(Stack* stack, char* name);
+int isExistingInStageStruct(Stack* stack, TypeStruct* ts);
+int isExistingInStageFunction(Stack* stack, Fonction* fonction);
+
 #endif
