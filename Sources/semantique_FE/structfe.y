@@ -41,21 +41,26 @@
 %type <var> struct_declaration_list
 %type <var> struct_declaration
 
+%type <type> primary_expression
+
+
 %start program
 %%
 
 primary_expression
-        : IDENTIFIER {/*identifieur fonction ou variable*/}
-        | CONSTANT
-        | '(' expression ')'
+        : IDENTIFIER {Type* type = getLastDefineType(stack,$1);
+			if(type==NULL) fprintf(stderr,"\n %s : not defined\n",$1); yyerror("ERROR");
+			$$ = type;}
+        | CONSTANT {Type* type = initType(); type->isUnary = 1; type->unaryType = INT_T; $$ = type;}
+        | '(' expression ')' {$$ = $2;}
         ;
 
 postfix_expression
-        : primary_expression
-        | postfix_expression '(' ')' {/*appelle d'une fonction*/}
+        : primary_expression {}
+        | postfix_expression '(' ')' {/*appelle d'une fonction type de cette exp = type retour de la fonction*/}
         | postfix_expression '(' argument_expression_list ')' {/*appelle d'une fonction*/}
-        | postfix_expression '.' IDENTIFIER
-        | postfix_expression PTR_OP IDENTIFIER 
+        | postfix_expression '.' IDENTIFIER {/* type structure il faut verifier si la structure a bien le champs identifieur*/}
+        | postfix_expression PTR_OP IDENTIFIER {/* type structure il faut verifier si la structure a bien le champs identifieur*/}
         ;
 
 argument_expression_list
@@ -77,13 +82,13 @@ unary_operator
 
 multiplicative_expression
         : unary_expression
-        | multiplicative_expression '*' unary_expression
+        | multiplicative_expression '*' unary_expression {/*verification 2 expression 2 int*/}
         | multiplicative_expression '/' unary_expression
         ;
 
 additive_expression
         : multiplicative_expression
-        | additive_expression '+' multiplicative_expression
+        | additive_expression '+' multiplicative_expression{/*verification 2 expression regle int / ptr*/}
         | additive_expression '-' multiplicative_expression
         ;
 
@@ -131,11 +136,17 @@ declaration
 		if($2.variableD == NULL && $2.fonctionD != NULL && $2.name != NULL) {
 
 			if(isExistingInStageFunction(stack,$2.fonctionD)) {fprintf(stderr,"\nPrevious declaration of %s was here\n",$2.name); yyerror("ERROR");} 
+				
+			
+			$2.fonctionD->type->isPtr = $2.isPtr;
+			$2.fonctionD->type->isFunction = 1;
 
 			$1->isPtr = $2.isPtr;
-			$2.fonctionD->type = $1;
-			$2.fonctionD->type->isFunction = 1;
-			$2.fonctionD->type->parametersType = variableToParameterType($2.fonctionD->variables);
+			$2.fonctionD->type->functionType = initFunctionType();
+			$2.fonctionD->type->functionType->returnType = $1;
+			$2.fonctionD->type->functionType->parameters = variableToParameterType($2.fonctionD->variables);
+			
+				
 			addFonctionToStack(stack,$2.fonctionD);
 		}
 		else{}
@@ -198,8 +209,10 @@ direct_declarator
         : IDENTIFIER {Transit t; t.isPtr = 0;  t.variableD = NULL; t.fonctionD = NULL; t.name = $1; $$ = t; }
         | '(' declarator ')' {$$=$2;}  
         | direct_declarator '(' parameter_list ')' {Transit t1 = $1; Fonction* f = initFonction(); f->name = t1.name; f->variables = $3;
+		f->type = initType(); f->type->isFunction = 1; f->type->isPtr =t1.isPtr;
 		Transit t2; t2.isPtr = 0; t2.variableD = NULL; t2.fonctionD = f; t2.name = t1.name; $$ = t2; }
         | direct_declarator '(' ')' {Transit t1 = $1; Fonction* f = initFonction(); f->name = t1.name;
+		f->type = initType(); f->type->isFunction = 1; f->type->isPtr =t1.isPtr;
 		Transit t2; t2.isPtr = 0; t2.variableD = NULL; t2.fonctionD = f; t2.name = t1.name; $$ = t2; }
         ;
 
@@ -264,7 +277,7 @@ iteration_statement
 
 jump_statement
         : RETURN ';'
-        | RETURN expression ';'
+        | RETURN expression ';' 
         ;
 
 program
@@ -283,10 +296,14 @@ function_definition
 
 		if(isExistingInStageFunction(stack,$2.fonctionD)) {fprintf(stderr,"\nPrevious declaration of %s was here\n",$2.name); yyerror("ERROR");} 
 
-		$1->isPtr = $2.isPtr;
-		$2.fonctionD->type = $1;
+		
+		$2.fonctionD->type->isPtr = $2.isPtr;
 		$2.fonctionD->type->isFunction = 1;
-		$2.fonctionD->type->parametersType = variableToParameterType($2.fonctionD->variables);
+
+		$1->isPtr = $2.isPtr;
+		$2.fonctionD->type->functionType = initFunctionType();
+		$2.fonctionD->type->functionType->returnType = $1;
+		$2.fonctionD->type->functionType->parameters = variableToParameterType($2.fonctionD->variables);
 		addFonctionToStack(stack,$2.fonctionD);
 		stack->top->currentFunction = $2.fonctionD;
 		} 

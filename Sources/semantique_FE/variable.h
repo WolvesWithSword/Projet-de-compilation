@@ -5,6 +5,7 @@
 struct _TypeStruct;
 struct _Variable;
 struct _ParameterType;
+struct _FunctionType;
 
 typedef enum { VOID_T, INT_T } UnaryType;
 
@@ -13,7 +14,7 @@ typedef struct _Type
 	int isUnary;
 	int isPtr;
 	int isFunction;
-	struct _ParameterType* parametersType;
+	struct _FunctionType* functionType;
 	UnaryType unaryType;
 	struct _TypeStruct* typeStruct;
 } Type;
@@ -34,6 +35,15 @@ typedef struct _ParameterType
 	Type* type;
 	struct _ParameterType *next;
 } ParameterType;
+
+/*
+Type d'une fonction
+*/
+typedef struct _FunctionType
+{
+	Type* returnType;
+	ParameterType* parameters;
+} FunctionType;
 
 
 typedef struct _Variable
@@ -85,7 +95,6 @@ Type* initType();
 void freeType(Type* type);
 void typePrint(Type* type);
 int compareType(Type* type1, Type* type2);
-int compareTypeWithoutPointer(Type* type1, Type* type2);
 
 //==============================Variable Fonction===========================================
 
@@ -122,6 +131,12 @@ int compareParameterType(ParameterType* type1, ParameterType* type2);
 ParameterType* variableToParameterType(Variable* varList);
 void parameterTypePrint(ParameterType* paramList);
 
+//==============================FunctionType Fonction===============================================
+
+FunctionType* initFunctionType();
+void freeFunctionType(FunctionType* funType);
+void functionTypePrint(FunctionType* funType);
+
 //==============================LinkedListNode function===========================================
 
 LinkedListNode* initList();
@@ -148,5 +163,6 @@ TypeStruct* isCreatedStruct(Stack* stack, char* name);
 int isExistingInStageName(Stack* stack, char* name);
 int isExistingInStageStruct(Stack* stack, TypeStruct* ts);
 int isExistingInStageFunction(Stack* stack, Fonction* fonction);
+Type* getLastDefineType(Stack* stack, char* name);
 
 #endif

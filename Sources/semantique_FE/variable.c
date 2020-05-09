@@ -7,6 +7,7 @@
 struct _TypeStruct;
 struct _Variable;
 struct _ParameterType;
+struct _FunctionType;
 /*====================Type des variable==============*/
 
 typedef enum { VOID_T, INT_T } UnaryType;
@@ -16,7 +17,7 @@ typedef struct _Type
 	int isUnary;
 	int isPtr;
 	int isFunction;
-	struct _ParameterType* parametersType;
+	struct _FunctionType* functionType;
 	UnaryType unaryType;
 	struct _TypeStruct* typeStruct;
 } Type;
@@ -47,6 +48,16 @@ typedef struct _ParameterType
 	Type* type;
 	struct _ParameterType *next;
 } ParameterType;
+
+
+/*
+Type d'une fonction
+*/
+typedef struct _FunctionType
+{
+	Type* returnType;
+	ParameterType* parameters;
+} FunctionType;
 
 
 /*
@@ -111,6 +122,9 @@ void structPrint(TypeStruct* typeStruct);
 int compareParameterType(ParameterType* type1,ParameterType* type2);
 void freeParameterType(ParameterType* list);
 void parameterTypePrint(ParameterType* paramList);
+void functionTypePrint(FunctionType* funType);
+void freeFunctionType(FunctionType* funType);
+int compareFunctionType(FunctionType* typeFun1, FunctionType* typeFun2);
 //==============================Type Fonction===============================================
 
 Type* initType(){
@@ -124,7 +138,7 @@ void freeType(Type* type){
 	if(type->typeStruct!=NULL){
 		freeTypeStruct(type->typeStruct);
 	}
-	freeParameterType(type->parametersType);
+	freeFunctionType(type->functionType);
 	free(type);
 }
 
@@ -134,10 +148,11 @@ void typePrint(Type* type){
 		return;
 	}
 	if(type->isFunction){
-		parameterTypePrint(type->parametersType);
-	}
-		
-	if(type->isUnary){
+		printf("(");
+		functionTypePrint(type->functionType);
+		printf(")");
+	}	
+	else if(type->isUnary){
 		switch(type->unaryType){
 			case 0 :
 				printf("void ");
@@ -157,31 +172,29 @@ void typePrint(Type* type){
 
 
 /*
-appeler un fonction ou un pointeur de fonction reviens au meme
-cette fonction vas donc permetre de s'avoir si c'est le meme type en 
-ignorant si c'est un pointeur ou pas
+compare 2 type qui ne sont pas des fonction
 */
-int compareTypeWithoutPointer(Type* type1, Type* type2){
+int compareType(Type* type1, Type* type2){
+	if(type1->isFunction){
+		return compareFunctionType(type1->functionType, type2->functionType);
+	}
+	if(type1->isPtr != type2->isPtr) return 0;
 	if(type1->isUnary!=type2->isUnary) return 0;
 	if(type1->isFunction!=type2->isFunction) return 0;
 
 	if(type1->isUnary==1){
 		if(type1->unaryType != type2->unaryType)
 			return 0;
+		return 1;
 	}
 	//une structure peut avoir que une adresse (a verif)
-	else if(type1->typeStruct != type2->typeStruct) return 0;
+	if(type1->typeStruct != type2->typeStruct) return 0;
 
-	//si c'est des fonction on compare les type de parametre
-	if(type1->isFunction==1)
-		return compareParameterType(type1->parametersType,type2->parametersType);
+	return 1;
 	
 }
 
 
-int compareType(Type* type1, Type* type2){
-	return ((type1->isPtr == type2->isPtr) && compareTypeWithoutPointer(type1,type2));
-}
 
 //==============================Variable Fonction===========================================
 
@@ -396,15 +409,43 @@ ParameterType* variableToParameterType(Variable* varList){
 }
 
 void parameterTypePrint(ParameterType* paramList){
-	printf("( ");
+	printf("(");
 	while(paramList!=NULL){
 		typePrint(paramList->type);
 		paramList = paramList->next;
-		if(paramList!=NULL) printf(" , ");
+		if(paramList!=NULL) printf(",");
 	}
-	printf(" ) =>");
+	printf(")");
 
 }
+
+//==============================FunctionType Fonction===============================================
+
+FunctionType* initFunctionType(){
+	FunctionType* functionType = malloc(sizeof(FunctionType));
+	memset(functionType,0,sizeof(FunctionType));
+	return functionType;
+}
+
+void freeFunctionType(FunctionType* funType){
+	freeType(funType->returnType);
+	freeParameterType(funType->parameters);
+	free(funType);
+}
+
+void functionTypePrint(FunctionType* funType){
+	parameterTypePrint(funType->parameters);
+	printf("=>");
+	typePrint(funType->returnType);
+}
+
+int compareFunctionType(FunctionType* typeFun1, FunctionType* typeFun2){
+	//si c'est pas le meme type de retour
+	if(!compareType(typeFun1->returnType,typeFun2->returnType)) return 0;
+	//si les parametre n'on pas le meme type
+	if(!compareParameterType(typeFun1->parameters,typeFun2->parameters)) return 0;
+	return 1;
+}	
 
 //==============================LinkedListNode function===========================================
 /*
@@ -565,18 +606,24 @@ int isExistingInStageFunction(Stack* stack, Fonction* fonction){
 
 Type* getLastDefineType(Stack* stack, char* name){
 	LinkedListNode* current = stack->top;
+
 	//defini dans la fonction courrante
 	if(current->currentFunction!=NULL){
 		Variable* res = getVariable(current->currentFunction->variables,name);
 		if(res!=NULL) return res->type;	
 	}
-	//c'est une variable
-	Variable* res = getVariable(current->variableList, name);
-	if(res!=NULL) return res->type;
+	while(current!=NULL){
+
+		//c'est une variable
+		Variable* res = getVariable(current->variableList, name);
+		if(res!=NULL) return res->type;
 	
-	//c'est une fonction
-	Fonction* res2 = getFonction(current->fonctionList, name);
-	if(res!=NULL) return res2->type;
+		//c'est une fonction
+		Fonction* res2 = getFonction(current->fonctionList, name);
+		if(res2!=NULL) return res2->type;
+		current = current->next;
+	}
+	return NULL;
 }
 
 
