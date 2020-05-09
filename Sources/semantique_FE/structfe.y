@@ -1,21 +1,22 @@
 %{
 
-	#include <stdio.h>
-	#include <stdlib.h>
-	#include <string.h>
-	#include "variable.h"
-	
-	int yylex();	
-	int yyerror();
+    #include <stdio.h>
+    #include <stdlib.h>
+    #include <string.h>
+    #include "variable.h"
+    
+    int yylex();    
+    int yyerror();
 %}
 
 %union {
-	char* name;
-	int value;
-	Transit transit;
-	Type* type;
-	Variable* var;
-	TypeStruct* typeStruct;
+    char* name;
+    int value;
+    Transit transit;
+    Type* type;
+    Variable* var;
+    TypeStruct* typeStruct;
+    ParameterType* parameterType;
 }
 
 %token <name> IDENTIFIER
@@ -42,48 +43,83 @@
 %type <var> struct_declaration
 
 %type <type> primary_expression
-
+%type <type> postfix_expression
+%type <parameterType> argument_expression_list
+%type <type> unary_expression
+%type <value> unary_operator
+%type <type> multiplicative_expression
+%type <type> expression
 
 %start program
 %%
 
 primary_expression
         : IDENTIFIER {Type* type = getLastDefineType(stack,$1);
-			if(type==NULL) fprintf(stderr,"\n %s : not defined\n",$1); yyerror("ERROR");
-			$$ = type;}
+            if(type==NULL) fprintf(stderr,"\n %s : not defined\n",$1); yyerror("ERROR");
+            $$ = type;}
         | CONSTANT {Type* type = initType(); type->isUnary = 1; type->unaryType = INT_T; $$ = type;}
         | '(' expression ')' {$$ = $2;}
         ;
 
 postfix_expression
-        : primary_expression {}
-        | postfix_expression '(' ')' {/*appelle d'une fonction type de cette exp = type retour de la fonction*/}
-        | postfix_expression '(' argument_expression_list ')' {/*appelle d'une fonction*/}
-        | postfix_expression '.' IDENTIFIER {/* type structure il faut verifier si la structure a bien le champs identifieur*/}
-        | postfix_expression PTR_OP IDENTIFIER {/* type structure il faut verifier si la structure a bien le champs identifieur*/}
+        : primary_expression {$$ = $1;}
+        | postfix_expression '(' ')' {
+        if($1->isFunction){
+            if($1->functionType->parameters ==NULL) $$ = $1->functionType->returnType;
+            else{ fprintf(stderr,"\nbad parameter to call function\n"); yyerror("ERROR");}
+        }
+        else {fprintf(stderr,"\nnot a function: ");yyerror("ERROR");}
+        }
+        | postfix_expression '(' argument_expression_list ')' {
+        if($1->isFunction){
+            if(compareParameterType($1->functionType->parameters,$3)) $$ = $1->functionType->returnType;
+            else{ fprintf(stderr,"\nbad parameter to call function\n"); yyerror("ERROR");}
+        }
+        else {fprintf(stderr,"\nnot a function\n"); yyerror("ERROR");}
+        }
+        | postfix_expression '.' IDENTIFIER {fprintf(stderr,"\n struct must be use with pointer\n"); yyerror("ERROR");}
+        | postfix_expression PTR_OP IDENTIFIER {
+        if($1->isUnary==0 && $1->isFunction==0){
+            if($1->isPtr){
+                Variable* var = getVariable($1->typeStruct->variables,$3);
+                if(var==NULL){fprintf(stderr,"\n struct %s : not has %s\n",$1->typeStruct->name,$3); yyerror("ERROR");}
+                else $$ = var->type;
+            }
+            else{fprintf(stderr,"\nuse -> without a pointer\n"); yyerror("ERROR");}
+        }else{fprintf(stderr,"\nuse -> not a structure\n"); yyerror("ERROR");}
+            
+/* type structure il faut verifier si la structure a bien le champs identifieur*/}
         ;
 
 argument_expression_list
-        : expression 
-        | argument_expression_list ',' expression {/*Liste des argument d'un appelle de fonction*/}
+        : expression {ParameterType* pt = initParameterType();pt->type =$1  ;$$=pt;}
+        | argument_expression_list ',' expression {addParameterType(&$1,$3);/*Liste des argument d'un appelle de fonction*/}
         ;
 
 unary_expression
-        : postfix_expression
-        | unary_operator unary_expression
-        | SIZEOF unary_expression
+        : postfix_expression {$$ = $1;}
+        | unary_operator unary_expression {
+            /*TODO changer la gestion pointeur d epointeur*/
+            if($1==1 && $2->isPtr==0){ $2->isPtr=1; $$=$2;}
+            else if($1==1 && $2->isPtr==1) {fprintf(stderr,"\ncan be use pointer of pointer\n"); yyerror("ERROR");}
+            else if($1==0 && $2->isPtr==1) {$2->isPtr=0; $$=$2;}
+            else if($1==0 && $2->isPtr==0){ fprintf(stderr,"\n * can be use only on pointer\n"); yyerror("ERROR");}
+            else if($1==2 && $2->isPtr==0 && $2->isUnary==1 && $2->unaryType == INT_T) $$ = $2;
+            else fprintf(stderr,"\n bad use of unaryOperator\n"); yyerror("ERROR");
+}
+        | SIZEOF unary_expression {Type* type = initType(); type->isUnary = 1; type->unaryType = INT_T; $$ = type;}
         ;
 
 unary_operator
-        : '&'
-        | '*'
-        | '-'
+        : '&' {$$ = 1;}
+        | '*' {$$ = 0;}
+        | '-' {$$ = 2;}
         ;
 
 multiplicative_expression
-        : unary_expression
-        | multiplicative_expression '*' unary_expression {/*verification 2 expression 2 int*/}
-        | multiplicative_expression '/' unary_expression
+        : unary_expression {$$ = $1;}
+        | multiplicative_expression '*' unary_expression {if(($1->isUnary == 1 && $1->unaryType == INT_T) && ($3->isUnary == 1 && $3->unaryType == INT_T)) $$ = $1;}
+        | multiplicative_expression '/' unary_expression {if(($1->isUnary == 1 && $1->unaryType == INT_T) && ($3->isUnary == 1 && $3->unaryType == INT_T)) $$ = $1;}
         ;
 
 additive_expression
@@ -123,34 +159,34 @@ expression
 
 declaration
         : declaration_specifiers declarator ';' {
-		if($2.variableD == NULL && $2.fonctionD == NULL && $2.name != NULL) {
+        if($2.variableD == NULL && $2.fonctionD == NULL && $2.name != NULL) {
 
-			if(isExistingInStageName(stack,$2.name)) {fprintf(stderr,"\nPrevious declaration of %s was here\n",$2.name); yyerror("ERROR");} 	
-		
-			$1->isPtr = $2.isPtr;
-			Variable* var = initVariable();
-			var->name = $2.name;
-			var->type = $1;
-			addVariableToStack(stack,var);
-		}
-		if($2.variableD == NULL && $2.fonctionD != NULL && $2.name != NULL) {
+            if(isExistingInStageName(stack,$2.name)) {fprintf(stderr,"\nPrevious declaration of %s was here\n",$2.name); yyerror("ERROR");}     
+        
+            $1->isPtr = $2.isPtr;
+            Variable* var = initVariable();
+            var->name = $2.name;
+            var->type = $1;
+            addVariableToStack(stack,var);
+        }
+        if($2.variableD == NULL && $2.fonctionD != NULL && $2.name != NULL) {
 
-			if(isExistingInStageFunction(stack,$2.fonctionD)) {fprintf(stderr,"\nPrevious declaration of %s was here\n",$2.name); yyerror("ERROR");} 
-				
-			
-			$2.fonctionD->type->isPtr = $2.isPtr;
-			$2.fonctionD->type->isFunction = 1;
+            if(isExistingInStageFunction(stack,$2.fonctionD)) {fprintf(stderr,"\nPrevious declaration of %s was here\n",$2.name); yyerror("ERROR");} 
+                
+            
+            $2.fonctionD->type->isPtr = $2.isPtr;
+            $2.fonctionD->type->isFunction = 1;
 
-			$1->isPtr = $2.isPtr;
-			$2.fonctionD->type->functionType = initFunctionType();
-			$2.fonctionD->type->functionType->returnType = $1;
-			$2.fonctionD->type->functionType->parameters = variableToParameterType($2.fonctionD->variables);
-			
-				
-			addFonctionToStack(stack,$2.fonctionD);
-		}
-		else{}
-	}
+            $1->isPtr = $2.isPtr;
+            $2.fonctionD->type->functionType = initFunctionType();
+            $2.fonctionD->type->functionType->returnType = $1;
+            $2.fonctionD->type->functionType->parameters = variableToParameterType($2.fonctionD->variables);
+            
+                
+            addFonctionToStack(stack,$2.fonctionD);
+        }
+        else{}
+    }
         | struct_specifier ';'
         ;
 
@@ -167,14 +203,14 @@ type_specifier
 
 struct_specifier
         : STRUCT IDENTIFIER {TypeStruct* ts = initTypeStruct(); ts->name = $2; 
-		if(isExistingInStageStruct(stack,ts)) {fprintf(stderr,"\n %s : Struct already declared\n",$2); yyerror("ERROR");}
-		addTypeStructToStack(stack,ts); $<typeStruct>$ = ts;} 
-	'{' struct_declaration_list '}' 
-		{$<typeStruct>3->variables = $5; $$ = $<typeStruct>3;}
-        | STRUCT '{' struct_declaration_list '}' {printf("		NOT IMPLEMENTED		");/*TypeStruct* ts = initTypeStruct(); ts->name = "_";
-		Transit t; t.variableD = NULL; t.fonctionD = NULL; t.typeStructD = ts; t.name = "_"; $$ = t;*/}
+        if(isExistingInStageStruct(stack,ts)) {fprintf(stderr,"\n %s : Struct already declared\n",$2); yyerror("ERROR");}
+        addTypeStructToStack(stack,ts); $<typeStruct>$ = ts;} 
+    '{' struct_declaration_list '}' 
+        {$<typeStruct>3->variables = $5; $$ = $<typeStruct>3;}
+        | STRUCT '{' struct_declaration_list '}' {printf("      NOT IMPLEMENTED     ");/*TypeStruct* ts = initTypeStruct(); ts->name = "_";
+        Transit t; t.variableD = NULL; t.fonctionD = NULL; t.typeStructD = ts; t.name = "_"; $$ = t;*/}
         | STRUCT IDENTIFIER {TypeStruct* ts = isCreatedStruct(stack,$2); 
-		if(ts == NULL) {fprintf(stderr,"\n %s : Struct not declared before\n",$2); yyerror("ERROR");}; $$ = ts;}
+        if(ts == NULL) {fprintf(stderr,"\n %s : Struct not declared before\n",$2); yyerror("ERROR");}; $$ = ts;}
         ;
 
 
@@ -187,21 +223,21 @@ struct_declaration_list
 struct_declaration
         : type_specifier declarator ';' {if($2.variableD == NULL && $2.fonctionD == NULL && $2.name != NULL) { 
 
-		$1->isPtr = $2.isPtr;
-		Variable* var = initVariable(); var->type = $1; var->name = $2.name; $$ = var;
-	}else{
-		fprintf(stderr,"\n %s : Struct parameters can't be functions declaration\n",$2.name); yyerror("ERROR");	
-	}}
+        $1->isPtr = $2.isPtr;
+        Variable* var = initVariable(); var->type = $1; var->name = $2.name; $$ = var;
+    }else{
+        fprintf(stderr,"\n %s : Struct parameters can't be functions declaration\n",$2.name); yyerror("ERROR"); 
+    }}
         ;
 
 declarator
         : '*' direct_declarator {
-		if($2.isPtr){ /*c'est un pointeur de pointeur*/
-			fprintf(stderr,"\n %s : Can be use pointeur of pointeur\n",$2.name); yyerror("ERROR");	
-		}
-		$2.isPtr=1;
-		$$ = $2;
-	}
+        if($2.isPtr){ /*c'est un pointeur de pointeur*/
+            fprintf(stderr,"\n %s : Can be use pointeur of pointeur\n",$2.name); yyerror("ERROR");  
+        }
+        $2.isPtr=1;
+        $$ = $2;
+    }
         | direct_declarator {$$ = $1;}
         ;
 
@@ -209,11 +245,11 @@ direct_declarator
         : IDENTIFIER {Transit t; t.isPtr = 0;  t.variableD = NULL; t.fonctionD = NULL; t.name = $1; $$ = t; }
         | '(' declarator ')' {$$=$2;}  
         | direct_declarator '(' parameter_list ')' {Transit t1 = $1; Fonction* f = initFonction(); f->name = t1.name; f->variables = $3;
-		f->type = initType(); f->type->isFunction = 1; f->type->isPtr =t1.isPtr;
-		Transit t2; t2.isPtr = 0; t2.variableD = NULL; t2.fonctionD = f; t2.name = t1.name; $$ = t2; }
+        f->type = initType(); f->type->isFunction = 1; f->type->isPtr =t1.isPtr;
+        Transit t2; t2.isPtr = 0; t2.variableD = NULL; t2.fonctionD = f; t2.name = t1.name; $$ = t2; }
         | direct_declarator '(' ')' {Transit t1 = $1; Fonction* f = initFonction(); f->name = t1.name;
-		f->type = initType(); f->type->isFunction = 1; f->type->isPtr =t1.isPtr;
-		Transit t2; t2.isPtr = 0; t2.variableD = NULL; t2.fonctionD = f; t2.name = t1.name; $$ = t2; }
+        f->type = initType(); f->type->isFunction = 1; f->type->isPtr =t1.isPtr;
+        Transit t2; t2.isPtr = 0; t2.variableD = NULL; t2.fonctionD = f; t2.name = t1.name; $$ = t2; }
         ;
 
 parameter_list
@@ -223,11 +259,11 @@ parameter_list
 
 parameter_declaration
         : declaration_specifiers declarator {if($2.variableD == NULL && $2.fonctionD == NULL && $2.name != NULL) { 
-		$1->isPtr = $2.isPtr;
-		Variable* var = initVariable(); var->type = $1; var->name = $2.name; $$ = var;
-	}else{
-		fprintf(stderr,"\n %s : Parameters can't be functions declaration\n",$2.name); yyerror("ERROR");	
-	}}
+        $1->isPtr = $2.isPtr;
+        Variable* var = initVariable(); var->type = $1; var->name = $2.name; $$ = var;
+    }else{
+        fprintf(stderr,"\n %s : Parameters can't be functions declaration\n",$2.name); yyerror("ERROR");    
+    }}
         ;
 
 statement
@@ -238,10 +274,10 @@ statement
         | jump_statement 
         ;
 new_stage
-	: {printf("\nadd stage\n");addStageToStack(stack);};
+    : {printf("\nadd stage\n");addStageToStack(stack);};
 
 remove_stage
-	: {printf("\nremove stage\n");printStack(stack);removeStageToStack(stack);};
+    : {printf("\nremove stage\n");printStack(stack);removeStageToStack(stack);};
 
 compound_statement
         : '{' '}'
@@ -292,44 +328,44 @@ external_declaration
 
 function_definition
         : declaration_specifiers declarator {
-		if($2.fonctionD == NULL) {fprintf(stderr,"\n %s : Not a function definition \n",$2.name); yyerror("ERROR");};
+        if($2.fonctionD == NULL) {fprintf(stderr,"\n %s : Not a function definition \n",$2.name); yyerror("ERROR");};
 
-		if(isExistingInStageFunction(stack,$2.fonctionD)) {fprintf(stderr,"\nPrevious declaration of %s was here\n",$2.name); yyerror("ERROR");} 
+        if(isExistingInStageFunction(stack,$2.fonctionD)) {fprintf(stderr,"\nPrevious declaration of %s was here\n",$2.name); yyerror("ERROR");} 
 
-		
-		$2.fonctionD->type->isPtr = $2.isPtr;
-		$2.fonctionD->type->isFunction = 1;
+        
+        $2.fonctionD->type->isPtr = $2.isPtr;
+        $2.fonctionD->type->isFunction = 1;
 
-		$1->isPtr = $2.isPtr;
-		$2.fonctionD->type->functionType = initFunctionType();
-		$2.fonctionD->type->functionType->returnType = $1;
-		$2.fonctionD->type->functionType->parameters = variableToParameterType($2.fonctionD->variables);
-		addFonctionToStack(stack,$2.fonctionD);
-		stack->top->currentFunction = $2.fonctionD;
-		} 
-		compound_statement
+        $1->isPtr = $2.isPtr;
+        $2.fonctionD->type->functionType = initFunctionType();
+        $2.fonctionD->type->functionType->returnType = $1;
+        $2.fonctionD->type->functionType->parameters = variableToParameterType($2.fonctionD->variables);
+        addFonctionToStack(stack,$2.fonctionD);
+        stack->top->currentFunction = $2.fonctionD;
+        } 
+        compound_statement
         ;
 
 %%
 
 extern FILE *yyin;
 int yyerror( char *s ){
-	fprintf(stderr,"%s\n",s);
-	exit(1);
+    fprintf(stderr,"%s\n",s);
+    exit(1);
 }
 
 int main(int argc, char *argv[])
 {
-	if((yyin = fopen(argv[1],"r"))==NULL){
-		fprintf(stderr,"File not found\n");
-		exit(1);
-	} 
-	else {
-		stack = newStack();
-		addStageToStack(stack);
-		yyparse();
-        	printf("Parse done\n");
-	}
-    	return 0;
+    if((yyin = fopen(argv[1],"r"))==NULL){
+        fprintf(stderr,"File not found\n");
+        exit(1);
+    } 
+    else {
+        stack = newStack();
+        addStageToStack(stack);
+        yyparse();
+            printf("Parse done\n");
+    }
+        return 0;
 }
 
