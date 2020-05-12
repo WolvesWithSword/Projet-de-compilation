@@ -17,6 +17,7 @@
     Variable* var;
     TypeStruct* typeStruct;
     ParameterType* parameterType;
+	ExpressionTransit expr;
 }
 
 %token <name> IDENTIFIER
@@ -42,18 +43,19 @@
 %type <var> struct_declaration_list
 %type <var> struct_declaration
 
-%type <type> primary_expression
-%type <type> postfix_expression
+%type <expr> primary_expression
+%type <expr> postfix_expression
 %type <parameterType> argument_expression_list
-%type <type> unary_expression
+%type <expr> unary_expression
 %type <value> unary_operator
-%type <type> multiplicative_expression
-%type <type> additive_expression
-%type <type> relational_expression
-%type <type> equality_expression
-%type <type> logical_and_expression
-%type <type> logical_or_expression
-%type <type> expression
+%type <expr> multiplicative_expression
+%type <expr> additive_expression
+%type <expr> relational_expression
+%type <expr> equality_expression
+%type <expr> logical_and_expression
+%type <expr> logical_or_expression
+%type <expr> expression
+%type <expr> expression_statement
 
 %start program
 %%
@@ -61,58 +63,96 @@
 primary_expression
         : IDENTIFIER {Type* type = getLastDefineType(stack,$1);
             if(type==NULL) {fprintf(stderr,"\n %s : not defined\n",$1); yyerror("SEMANTIC ERROR");}
-            $$ = type;}
-        | CONSTANT {Type* type = initType(); type->isUnary = 1; type->unaryType = INT_T; $$ = type;}
+			ExpressionTransit exp; exp.nameId = $1; exp.isId = 1; exp.isAffectable = 1; typeCopy(&exp.type,type);$$ = exp;}
+
+
+        | CONSTANT {Type type = {0}; type.isUnary = 1; type.unaryType = INT_T;
+					ExpressionTransit exp; exp.nameId = NULL; exp.isId = 0; exp.isAffectable = 0; exp.type = type; $$ = exp;}
+
+
         | '(' expression ')' {$$ = $2;}
+
         ;
 
 postfix_expression
         : primary_expression {$$ = $1;}
+
+
         | postfix_expression '(' ')' {
-        if($1->isFunction){
-            if($1->functionType->parameters ==NULL) $$ = $1->functionType->returnType;
-            else{ fprintf(stderr,"\nbad parameter to call function\n"); yyerror("SEMANTIC ERROR");}
+        if($1.type.isFunction){
+            if($1.type.functionType->parameters ==NULL) {
+				ExpressionTransit exp; exp.nameId = NULL; exp.isId = 0; typeCopy(&exp.type,$1.type.functionType->returnType);exp.isAffectable = 0;
+				$$ = exp;
+			}
+            else{ fprintf(stderr,"\n%s :bad parameter to call function\n",$1.nameId); yyerror("SEMANTIC ERROR");}
         }
         else {fprintf(stderr,"\nnot a function: ");yyerror("SEMANTIC ERROR");}
         }
-        | postfix_expression '(' argument_expression_list ')' {
-        if($1->isFunction){
-            if(compareParameterType($1->functionType->parameters,$3)) $$ = $1->functionType->returnType;
-            else{ fprintf(stderr,"\nbad parameter to call function\n"); yyerror("SEMANTIC ERROR");}
+
+
+
+        | postfix_expression '(' argument_expression_list ')' { /*TODO clear la argument_expression_list (après verif)*/
+        if($1.type.isFunction){
+            if(compareParameterType($1.type.functionType->parameters,$3)) {
+				ExpressionTransit exp; exp.nameId = NULL; exp.isId = 0; typeCopy(&exp.type,$1.type.functionType->returnType); exp.isAffectable = 0;
+				$$ = exp;
+			}
+            else{ fprintf(stderr,"\n%s : bad parameter to call function\n",$1.nameId); yyerror("SEMANTIC ERROR");}
         }
         else {fprintf(stderr,"\nnot a function\n"); yyerror("SEMANTIC ERROR");}
         }
+
         | postfix_expression '.' IDENTIFIER {fprintf(stderr,"\n struct must be use with pointer\n"); yyerror("SEMANTIC ERROR");}
+
         | postfix_expression PTR_OP IDENTIFIER {
-        if($1->isUnary==0 && $1->isFunction==0){
-            if($1->isPtr){
-                Variable* var = getVariable($1->typeStruct->variables,$3);
-                if(var==NULL){fprintf(stderr,"\n struct %s : not has %s\n",$1->typeStruct->name,$3); yyerror("SEMANTIC ERROR");}
-                else $$ = var->type;
+        if($1.type.isUnary==0 && $1.type.isFunction==0){
+            if($1.type.isPtr){
+                Variable* var = getVariable($1.type.typeStruct->variables,$3);
+                if(var==NULL){fprintf(stderr,"\n struct %s : not has %s\n",$1.type.typeStruct->name,$3); yyerror("SEMANTIC ERROR");}
+                else{
+					ExpressionTransit exp = $1;
+					exp.isId = 0;
+					exp.nameId = NULL;
+					exp.isAffectable = 1;
+					typeCopy(&exp.type,var->type);
+					$$ = exp;
+				}
             }
-            else{fprintf(stderr,"\nuse -> without a pointer\n"); yyerror("SEMANTIC ERROR");}
+            else{fprintf(stderr,"\nuse -> without a struct pointer\n"); yyerror("SEMANTIC ERROR");}
         }else{fprintf(stderr,"\nuse -> not a structure\n"); yyerror("SEMANTIC ERROR");}
             
 /* type structure il faut verifier si la structure a bien le champs identifieur*/}
         ;
 
 argument_expression_list
-        : expression {ParameterType* pt = initParameterType();pt->type =$1  ;$$=pt;}
-        | argument_expression_list ',' expression {addParameterType(&$1,$3);/*Liste des argument d'un appelle de fonction*/}
+        : expression {Type* type = initType();typeCopy(type,&$1.type); ParameterType* pt = initParameterType();pt->type =type; ;$$=pt; /*TODO enlever le malloc*/}
+        | argument_expression_list ',' expression {
+addParameterType(&$1,&$3.type);/*Liste des argument d'un appelle de fonction*/}
         ;
 
 unary_expression
         : postfix_expression {$$ = $1;}
         | unary_operator unary_expression {
             /*TODO changer la gestion pointeur d epointeur*/
-            if($1==1 && $2->isPtr==0){ $2->isPtr=1; $$=$2;}
-            else if($1==1 && $2->isPtr==1) {fprintf(stderr,"\ncan be use pointer of pointer\n"); yyerror("SEMANTIC ERROR");}
-            else if($1==0 && $2->isPtr==1) {$2->isPtr=0; $$=$2;}
-            else if($1==0 && $2->isPtr==0){ fprintf(stderr,"\n * can be use only on pointer\n"); yyerror("SEMANTIC ERROR");}
-            else if($1==2 && $2->isPtr==0 && $2->isUnary==1 && $2->unaryType == INT_T) $$ = $2;
+            if($1==1){
+				if($2.type.isPtr==0){
+					if($2.isId==1){ $2.type.isPtr=1; $2.isId = 0; $2.nameId=NULL; $2.isAffectable = 0; $$=$2;
+					}else {fprintf(stderr,"\n& can be use only on identifieur\n"); yyerror("SEMANTIC ERROR");}
+				}else {fprintf(stderr,"\ncan be use pointer of pointer\n"); yyerror("SEMANTIC ERROR");}
+            }
+
+			else if($1==0){
+				if($2.type.isPtr==1) {$2.type.isPtr=0; $2.isId = 0; $2.isAffectable = 1; $2.nameId=NULL; $$=$2;
+				}else{fprintf(stderr,"\n * can be use only on pointer\n"); yyerror("SEMANTIC ERROR");}
+			}
+           
+            else if($1==2)
+				if($2.type.isPtr==0)
+					if($2.type.isUnary==1)
+						if($2.type.unaryType == INT_T){$2.isId = 0;$2.isAffectable = 0; $2.nameId=NULL ;$$ = $2;}
             else {fprintf(stderr,"\n bad use of unaryOperator\n"); yyerror("SEMANTIC ERROR");}
 }
-        | SIZEOF unary_expression {Type* type = initType(); type->isUnary = 1; type->unaryType = INT_T; $$ = type;}
+        | SIZEOF unary_expression {Type type = {0}; type.isUnary = 1; type.unaryType = INT_T;ExpressionTransit exp; exp.nameId = NULL; exp.isId = 0;exp.isAffectable = 0; exp.type = type; $$ = exp; /*TODO peut etre un type*/}
         ;
 
 unary_operator
@@ -124,11 +164,11 @@ unary_operator
 multiplicative_expression
         : unary_expression {$$ = $1;}
         | multiplicative_expression '*' unary_expression {
-		if(($1->isUnary == 1 && $1->unaryType == INT_T) && ($3->isUnary == 1 && $3->unaryType == INT_T)) $$ = $1;
+		if(($1.type.isUnary == 1 && $1.type.unaryType == INT_T) && ($3.type.isUnary == 1 && $3.type.unaryType == INT_T)) {$1.isId = 0;$1.isAffectable = 0; $$ = $1;}
 		else {fprintf(stderr,"\nmultiplication between wrong types\n"); yyerror("SEMANTIC ERROR");} 
 		}
         | multiplicative_expression '/' unary_expression {
-		if(($1->isUnary == 1 && $1->unaryType == INT_T) && ($3->isUnary == 1 && $3->unaryType == INT_T)) $$ = $1;
+		if(($1.type.isUnary == 1 && $1.type.unaryType == INT_T) && ($3.type.isUnary == 1 && $3.type.unaryType == INT_T)) {$1.isId = 0; $1.isAffectable = 0; $$ = $1;}
 		else {fprintf(stderr,"\ndivision between wrong types\n"); yyerror("SEMANTIC ERROR");} 
 		}
         ; 	
@@ -136,15 +176,17 @@ multiplicative_expression
 additive_expression
         : multiplicative_expression {$$ = $1;}
         | additive_expression '+' multiplicative_expression{
-		if(($1->isUnary == 1 && $1->unaryType == INT_T) && ($3->isUnary == 1 && $3->unaryType == INT_T)) $$ = $1; /* int + int = int */
-		else if(($1->isPtr == 1) && ($3->isUnary == 1 && $3->unaryType == INT_T)) $$ = $1; /* ptr + int = ptr */
+		if(($1.type.isUnary == 1 && $1.type.unaryType == INT_T) && ($3.type.isUnary == 1 && $3.type.unaryType == INT_T)) {$1.isId = 0; $1.isAffectable = 0; $$ = $1;} /* int + int = int */
+		else if(($1.type.isPtr == 1) && ($3.type.isUnary == 1 && $3.type.unaryType == INT_T)) {$1.isId = 0; $1.isAffectable = 0; $$ = $1;} /* ptr + int = ptr */
 		else {fprintf(stderr,"\n+ :  bad use of pointers\n"); yyerror("SEMANTIC ERROR");} 
 
 	}
         | additive_expression '-' multiplicative_expression{
-		if(($1->isUnary == 1 && $1->unaryType == INT_T) && ($3->isUnary == 1 && $3->unaryType == INT_T)) $$ = $1; /* int + int = int */
-		else if(($1->isPtr == 1) && ($3->isUnary == 1 && $3->unaryType == INT_T)) $$ = $1; /* ptr + int = ptr */
-		else if(($1->isPtr == 1) && ($3->isPtr == 1)) {Type* type = initType(); type->isUnary = 1; type->unaryType = INT_T; $$ = type;}/* ptr - ptr = int */
+		if(($1.type.isUnary == 1 && $1.type.unaryType == INT_T) && ($3.type.isUnary == 1 && $3.type.unaryType == INT_T)) {$1.isId = 0;$$ = $1;} /* int + int = int */
+		else if(($1.type.isPtr == 1) && ($3.type.isUnary == 1 && $3.type.unaryType == INT_T)) {$1.isId = 0; $1.isAffectable = 0; $$ = $1;} /* ptr + int = ptr */
+		else if(($1.type.isPtr == 1) && ($3.type.isPtr == 1)) {
+					Type type = {0}; type.isUnary = 1; type.unaryType = INT_T;
+					ExpressionTransit exp; exp.nameId = NULL; exp.isId = 0; exp.type = type; $$ = exp;}/* ptr - ptr = int */
 		else {fprintf(stderr,"\n- :  bad use of pointers\n"); yyerror("SEMANTIC ERROR");} 
 	}
         ;
@@ -152,19 +194,19 @@ additive_expression
 relational_expression
         : additive_expression {$$ = $1;}
         | relational_expression '<' additive_expression{
-		if(($1->isUnary == 1 && $1->unaryType == INT_T) && ($3->isUnary == 1 && $3->unaryType == INT_T)) $$ = $1;
+		if(($1.type.isUnary == 1 && $1.type.unaryType == INT_T) && ($3.type.isUnary == 1 && $3.type.unaryType == INT_T)) {$1.isId = 0; $1.isAffectable = 0; $$ = $1;}
 		else {fprintf(stderr,"\n< : logical expression between wrong types\n"); yyerror("SEMANTIC ERROR");} 
 		}
         | relational_expression '>' additive_expression{
-		if(($1->isUnary == 1 && $1->unaryType == INT_T) && ($3->isUnary == 1 && $3->unaryType == INT_T)) $$ = $1;
+		if(($1.type.isUnary == 1 && $1.type.unaryType == INT_T) && ($3.type.isUnary == 1 && $3.type.unaryType == INT_T)) {$1.isId = 0; $1.isAffectable = 0; $$ = $1;}
 		else {fprintf(stderr,"\n> :logical expression between wrong types\n"); yyerror("SEMANTIC ERROR");} 
 		}
         | relational_expression LE_OP additive_expression{
-		if(($1->isUnary == 1 && $1->unaryType == INT_T) && ($3->isUnary == 1 && $3->unaryType == INT_T)) $$ = $1;
+		if(($1.type.isUnary == 1 && $1.type.unaryType == INT_T) && ($3.type.isUnary == 1 && $3.type.unaryType == INT_T)) {$1.isId = 0; $1.isAffectable = 0; $$ = $1;}
 		else {fprintf(stderr,"\n<= : logical expression between wrong types\n"); yyerror("SEMANTIC ERROR");} 
 		}
         | relational_expression GE_OP additive_expression{
-		if(($1->isUnary == 1 && $1->unaryType == INT_T) && ($3->isUnary == 1 && $3->unaryType == INT_T)) $$ = $1;
+		if(($1.type.isUnary == 1 && $1.type.unaryType == INT_T) && ($3.type.isUnary == 1 && $3.type.unaryType == INT_T)) {$1.isId = 0; $1.isAffectable = 0; $$ = $1;}
 		else {fprintf(stderr,"\n>= : logical expression between wrong types\n"); yyerror("SEMANTIC ERROR");} 
 		}
         ;
@@ -172,11 +214,11 @@ relational_expression
 equality_expression
         : relational_expression {$$ = $1;}
         | equality_expression EQ_OP relational_expression{
-		if(($1->isUnary == 1 && $1->unaryType == INT_T) && ($3->isUnary == 1 && $3->unaryType == INT_T)) $$ = $1;
+		if(($1.type.isUnary == 1 && $1.type.unaryType == INT_T) && ($3.type.isUnary == 1 && $3.type.unaryType == INT_T)) {$1.isId = 0; $1.isAffectable = 0; $$ = $1;}
 		else {fprintf(stderr,"\n== : logical expression between wrong types\n"); yyerror("SEMANTIC ERROR");} 
 		}
         | equality_expression NE_OP relational_expression{
-		if(($1->isUnary == 1 && $1->unaryType == INT_T) && ($3->isUnary == 1 && $3->unaryType == INT_T)) $$ = $1;
+		if(($1.type.isUnary == 1 && $1.type.unaryType == INT_T) && ($3.type.isUnary == 1 && $3.type.unaryType == INT_T)) {$1.isId = 0; $1.isAffectable = 0; $$ = $1;}
 		else {fprintf(stderr,"\n!= : logical expression between wrong types\n"); yyerror("SEMANTIC ERROR");} 
 		}
         ;
@@ -184,7 +226,7 @@ equality_expression
 logical_and_expression
         : equality_expression {$$ = $1;}
         | logical_and_expression AND_OP equality_expression{
-		if(($1->isUnary == 1 && $1->unaryType == INT_T) && ($3->isUnary == 1 && $3->unaryType == INT_T)) $$ = $1;
+		if(($1.type.isUnary == 1 && $1.type.unaryType == INT_T) && ($3.type.isUnary == 1 && $3.type.unaryType == INT_T)) {$1.isId = 0; $1.isAffectable = 0; $$ = $1;}
 		else {fprintf(stderr,"\n&& : logical expression between wrong types\n"); yyerror("SEMANTIC ERROR");} 
 		}
         ;
@@ -192,7 +234,7 @@ logical_and_expression
 logical_or_expression
         : logical_and_expression {$$ = $1;}
         | logical_or_expression OR_OP logical_and_expression{
-		if(($1->isUnary == 1 && $1->unaryType == INT_T) && ($3->isUnary == 1 && $3->unaryType == INT_T)) $$ = $1;
+		if(($1.type.isUnary == 1 && $1.type.unaryType == INT_T) && ($3.type.isUnary == 1 && $3.type.unaryType == INT_T)) {$1.isId = 0; $1.isAffectable = 0; $$ = $1;}
 		else {fprintf(stderr,"\n|| : logical expression between wrong types\n"); yyerror("SEMANTIC ERROR");} 
 		}
         ;
@@ -200,11 +242,13 @@ logical_or_expression
 expression
         : logical_or_expression {$$ = $1;/* je sais pas si il faut remonter */}
         | unary_expression '=' expression {/* possible d'ecrire function(truc , truc) = truc ????? */
-		if(compareType($1,$3) == 1) {
-			$$ = $1; /* TODO : gerer si l'on ne fait pas 3 = 5 */
+		if($1.isAffectable){
+			if(compareType(&$1.type,&$3.type)){
+				$$.isAffectable = 0; $$ = $3;
+			}else{fprintf(stderr,"\nError: incompatible types when assigning\n"); yyerror("SEMANTIC ERROR");}
+		}else{fprintf(stderr,"\nError: lvalue required as left operand of assignement\n"); yyerror("SEMANTIC ERROR");}
+		
 		}
-		else {fprintf(stderr,"\nAssignement between differents types\n"); yyerror("SEMANTIC ERROR");}
-	}
         ;
 
 declaration
@@ -224,12 +268,12 @@ declaration
             if(isExistingInStageFunction(stack,$2.fonctionD)) {fprintf(stderr,"\nPrevious declaration of %s was here\n",$2.name); yyerror("SEMANTIC ERROR");} 
                 
             
-            $2.fonctionD->type->isPtr = $2.isPtr;
             $2.fonctionD->type->isFunction = 1;
 
             $1->isPtr = $2.isPtr;
             $2.fonctionD->type->functionType = initFunctionType();
             $2.fonctionD->type->functionType->returnType = $1;
+			$2.fonctionD->type->functionType->returnType->isPtr = $2.isPtr;
             $2.fonctionD->type->functionType->parameters = variableToParameterType($2.fonctionD->variables);
             
                 
@@ -347,23 +391,56 @@ statement_list
         ;
 
 expression_statement
-        : ';'
-        | expression ';'
+        : ';'{/*return int?*/}
+        | expression ';' {$$ = $1;}
         ;
 
 selection_statement
-        : IF '(' expression ')' statement %prec LOWER_THAN_ELSE
-        | IF '(' expression ')' statement ELSE statement
+        : IF '(' expression ')' statement %prec LOWER_THAN_ELSE {
+			if($3.type.isPtr==1){printf("\nWarning: use pointer instead of int\n");}
+			if(!($3.type.isPtr==1 || ($3.type.isPtr==0 && $3.type.isUnary==1 && $3.type.unaryType == INT_T))){
+				fprintf(stderr,"\nif need a int value\n"); yyerror("SEMANTIC ERROR"); 
+			}
+		}
+			
+			
+        | IF '(' expression ')' statement ELSE statement{
+			if($3.type.isPtr==1){printf("\nWarning: use pointer instead of int\n");}
+			if(!($3.type.isPtr==1 || ($3.type.isPtr==0 && $3.type.isUnary==1 && $3.type.unaryType == INT_T))){
+				fprintf(stderr,"\nif need a int value\n"); yyerror("SEMANTIC ERROR"); 
+			}
+		}
         ;
 
 iteration_statement
-        : WHILE '(' expression ')' statement
-        | FOR '(' expression_statement expression_statement expression ')' statement
+        : WHILE '(' expression ')' statement {
+			if($3.type.isPtr==1){printf("\nWarning: use pointer instead of int\n");}
+			if(!($3.type.isPtr==1 || ($3.type.isPtr==0 && $3.type.isUnary==1 && $3.type.unaryType == INT_T))){
+				fprintf(stderr,"\nif need a int value\n"); yyerror("SEMANTIC ERROR"); 
+			}
+		}
+        | FOR '(' expression_statement expression_statement expression ')' statement {
+			if($4.type.isPtr==1){printf("\nWarning: use pointer instead of int\n");}
+			if(!($4.type.isPtr==1 || ($4.type.isPtr==0 && $4.type.isUnary==1 && $4.type.unaryType == INT_T))){
+				fprintf(stderr,"\nif need a int value\n"); yyerror("SEMANTIC ERROR"); 
+			}
+		}
+		| FOR '(' expression_statement expression_statement ')' statement{
+			if($4.type.isPtr==1){printf("\nWarning: use pointer instead of int\n");}
+			if(!($4.type.isPtr==1 || ($4.type.isPtr==0 && $4.type.isUnary==1 && $4.type.unaryType == INT_T))){
+				fprintf(stderr,"\nif need a int value\n"); yyerror("SEMANTIC ERROR"); 
+			}
+		}
         ;
 
 jump_statement
-        : RETURN ';'
-        | RETURN expression ';' 
+        : RETURN ';' {/*si pas void warning int x(){return;}*/}
+        | RETURN expression ';' {
+			Fonction* currentFonction = getCurrentFonction(stack);
+			if(currentFonction == NULL){ fprintf(stderr,"\n You can't return outside a function.\n"); yyerror("SEMANTIC ERROR");}
+			if(!compareType(currentFonction->type->functionType->returnType,&$2.type)){fprintf(stderr,"\n bad return type\n"); yyerror("SEMANTIC ERROR");}
+			}
+				
         ;
 
 program
@@ -383,12 +460,12 @@ function_definition
         if(isExistingInStageFunction(stack,$2.fonctionD)) {fprintf(stderr,"\nPrevious declaration of %s was here\n",$2.name); yyerror("SEMANTIC ERROR");} 
 
         
-        $2.fonctionD->type->isPtr = $2.isPtr;
         $2.fonctionD->type->isFunction = 1;
 
         $1->isPtr = $2.isPtr;
         $2.fonctionD->type->functionType = initFunctionType();
         $2.fonctionD->type->functionType->returnType = $1;
+	$2.fonctionD->type->functionType->returnType->isPtr = $2.isPtr;
         $2.fonctionD->type->functionType->parameters = variableToParameterType($2.fonctionD->variables);
         addFonctionToStack(stack,$2.fonctionD);
         stack->top->currentFunction = $2.fonctionD;

@@ -89,9 +89,18 @@ typedef struct _Transit
 	int isPtr;
 } Transit;
 
+typedef struct _Expression
+{
+	Type type;
+	int isId;
+	int isAffectable;
+	char* nameId;
+} ExpressionTransit;
+
 //==============================Type Fonction===========================================
 
 Type* initType();
+void typeCopy(Type* dest ,Type* source);
 void freeType(Type* type);
 void typePrint(Type* type);
 int compareType(Type* type1, Type* type2);
@@ -164,5 +173,6 @@ int isExistingInStageName(Stack* stack, char* name);
 int isExistingInStageStruct(Stack* stack, TypeStruct* ts);
 int isExistingInStageFunction(Stack* stack, Fonction* fonction);
 Type* getLastDefineType(Stack* stack, char* name);
+Fonction* getCurrentFonction(Stack* stack);
 
 #endif

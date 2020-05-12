@@ -116,6 +116,14 @@ typedef struct _Transit
 	int isPtr;
 } Transit;
 
+typedef struct _Expression
+{
+	Type type;
+	int isId;
+	int isAffectable;
+	char* nameId;
+} ExpressionTransit;
+
 //============================ implicite declaration========================================
 void freeTypeStruct(TypeStruct* typeStruct);
 void structPrint(TypeStruct* typeStruct);
@@ -132,6 +140,10 @@ Type* initType(){
 	memset(type,0,sizeof(Type));
 	return type;
 }
+
+void typeCopy(Type* dest ,Type* source){
+	memcpy(dest,source,sizeof(Type));
+	}
 
 void freeType(Type* type){
 	if(type==NULL){ return;}
@@ -588,7 +600,7 @@ int isExistingInStageName(Stack* stack, char* name){
 	Variable* res3 = NULL;
 	if(current->currentFunction!=NULL) res3 = getVariable(current->currentFunction->variables,name);
 
-	if(res1 == NULL && res2 == NULL) return 0;
+	if(res1 == NULL && res2 == NULL && res3 == NULL) return 0;
 	return 1;
 }
 
@@ -607,12 +619,13 @@ int isExistingInStageFunction(Stack* stack, Fonction* fonction){
 Type* getLastDefineType(Stack* stack, char* name){
 	LinkedListNode* current = stack->top;
 
-	//defini dans la fonction courrante
-	if(current->currentFunction!=NULL){
-		Variable* res = getVariable(current->currentFunction->variables,name);
-		if(res!=NULL) return res->type;	
-	}
 	while(current!=NULL){
+		
+		//defini dans la fonction courante;
+		if(current->currentFunction!=NULL){
+			Variable* res1 = getVariable(current->currentFunction->variables,name);
+			if(res1!=NULL) return res1->type;	
+		}
 
 		//c'est une variable
 		Variable* res = getVariable(current->variableList, name);
@@ -621,6 +634,17 @@ Type* getLastDefineType(Stack* stack, char* name){
 		//c'est une fonction
 		Fonction* res2 = getFonction(current->fonctionList, name);
 		if(res2!=NULL) return res2->type;
+		current = current->next;
+	}
+	return NULL;
+}
+
+Fonction* getCurrentFonction(Stack* stack){
+	LinkedListNode* current = stack->top;
+	while(current!=NULL){
+		//On cherche la fonction la plus haute dans la table des symbole (fonction courrante);
+		Fonction* res = current->currentFunction;
+		if(res!=NULL) return res;	
 		current = current->next;
 	}
 	return NULL;
