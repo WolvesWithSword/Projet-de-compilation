@@ -55,11 +55,11 @@ int yyerror();
 "volatile"              { /* A completer */ }
 "while"                 { /* A completer */ }
 
-{L}({L}|{D})*           {yylval.name = strdup(yytext); printf("IDENTIFIER:%s",yytext); return IDENTIFIER;}
+{L}({L}|{D})*           {printf("IDENTIFIER:%s",yytext); return IDENTIFIER;}
 
 0[xX]{H}+{IS}?          { /* A completer */ }
 0{D}+{IS}?              { /* A completer */ }
-{D}+{IS}?               { printf("CONSTANT"); return CONSTANT;}
+{D}+{IS}?               { printf("CONSTANT:%s",yytext); return CONSTANT;}
 L?'(\\.|[^\\'])+'       { /* A completer */ }
 
 {D}+{E}{FS}?            { /* A completer */ }
@@ -100,23 +100,3 @@ L?\"(\\.|[^\\"])*\"     { /* A completer */ }
 [ \t\v\n\f\r]            { printf("%c",yytext[0]);}
 .                      { fprintf(stderr,"%c\n",yytext[0]); yyerror("char not accepted"); }
 %%
-
-extern FILE *yyin;
-
-int yyerror( char *s ){
-	fprintf(stderr,"%s\n",s);
-	exit(1);
-}
-
-int main(int argc, char *argv[])
-{
-	if((yyin = fopen(argv[1],"r"))==NULL){
-		fprintf(stderr,"File not found\n");
-		exit(1);
-    } 
-	else {
-        yylex();
-        printf("Parse done\n");
-    }
-    return 0;
-}

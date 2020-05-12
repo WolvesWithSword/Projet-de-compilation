@@ -1,3 +1,16 @@
+%{
+#include <stdio.h>
+#include <stdlib.h>
+
+int yylex();
+int yyerror();
+
+
+/* Ne gère pas les commentaires. A rajouter */
+/* Supprimer les lignes dont vous n'avez pas besoin. */
+%}
+
+
 %token IDENTIFIER CONSTANT 
 %token LE_OP GE_OP EQ_OP NE_OP
 %token EXTERN
@@ -158,4 +171,23 @@ function_definition
         ;
 
 %%
+
+extern FILE *yyin;
+int yyerror( char *s ){
+    fprintf(stderr,"%s\n",s);
+    exit(1);
+}
+
+int main(int argc, char *argv[])
+{
+    if((yyin = fopen(argv[1],"r"))==NULL){
+        fprintf(stderr,"File not found\n");
+        exit(1);
+    } 
+    else {
+        yyparse();
+        printf("Parse done\n");
+    }
+    return 0;
+}
 

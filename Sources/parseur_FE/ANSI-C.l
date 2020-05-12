@@ -51,11 +51,11 @@ COM			"/*"[^"*/"]*"*/"
 "volatile"              { /* A completer */ }
 "while"                 { printf("WHILE");}
 
-{L}({L}|{D})*           { printf("IDENTIFIER");}
+{L}({L}|{D})*           { printf("IDENTIFIER:%s",yytext);}
 
 0[xX]{H}+{IS}?          { /* A completer */ }
 0{D}+{IS}?              { /* A completer */ }
-{D}+{IS}?               { printf("CONSTANT");}
+{D}+{IS}?               { printf("CONSTANT:%s",yytext);}
 L?'(\\.|[^\\'])+'       { /* A completer */ }
 
 {D}+{E}{FS}?            { /* A completer */ }
