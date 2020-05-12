@@ -64,18 +64,18 @@ L?'(\\.|[^\\'])+'       { /* A completer */ }
 
 L?\"(\\.|[^\\"])*\"     { /* A completer */ }
 
-"->"                    { printf("PTR_OP"); }
-"&&"                    { printf("AND_OP"); }
-"||"                    { printf("OR_OP"); }
-"<="                    { printf("LE_OP"); }
-">="                    { printf("GE_OP"); }
-"=="                    { printf("EQ_OP"); }
-"!="                    { printf("NE_OP"); }
+"->"                    { printf(" PTR_OP "); }
+"&&"                    { printf(" AND_OP "); }
+"||"                    { printf(" OR_OP "); }
+"<="                    { printf(" LE_OP "); }
+">="                    { printf(" GE_OP "); }
+"=="                    { printf(" EQ_OP "); }
+"!="                    { printf(" NE_OP "); }
 
-"("|")"|"{"|"}"   { printf("%c",yytext[0]);}
-"*"|"-"|"/"|"+"   { printf("%c",yytext[0]);}
-"<"|">"|"="|"&"   { printf("%c",yytext[0]);}
-","|";"|"."       { printf("%c",yytext[0]);}
+"("|")"|"{"|"}"   { printf(" %c ",yytext[0]);}
+"*"|"-"|"/"|"+"   { printf(" %c ",yytext[0]);}
+"<"|">"|"="|"&"   { printf(" %c ",yytext[0]);}
+","|";"|"."       { printf(" %c ",yytext[0]);}
 
 [ \t\v\n\f\r]     { printf("%c",yytext[0]);}
 
