@@ -254,9 +254,11 @@ expression
     : logical_or_expression {$$ = $1;/* je sais pas si il faut remonter */}
     | unary_expression '=' expression {/* possible d'ecrire function(truc , truc) = truc ????? */
 		if($1.isAffectable){
-			if(compareType(&$1.type,&$3.type)){
+			int res = compareTypeForOp(&$1.type,&$3.type);
+			if(res == 1){
 				$$.isAffectable = 0; $$ = $3;
 			}
+			else if(res == 2){fprintf(stderr,"\nWarning : makes integer from pointer\n");}
             else{fprintf(stderr,"\nError: incompatible types when assigning\n"); yyerror("SEMANTIC ERROR");}
 		}
         else{fprintf(stderr,"\nError: lvalue required as left operand of assignement\n"); yyerror("SEMANTIC ERROR");}
@@ -265,7 +267,7 @@ expression
 
 declaration
     : declaration_specifiers declarator ';' {
-        if($2.variableD == NULL && $2.fonctionD == NULL && $2.name != NULL) {
+    	if($2.variableD == NULL && $2.fonctionD == NULL && $2.name != NULL) {
 
             if(isExistingInStageName(stack,$2.name)) {fprintf(stderr,"\nPrevious declaration of %s was here\n",$2.name); yyerror("SEMANTIC ERROR");}     
         
@@ -330,7 +332,7 @@ struct_specifier
 
 struct_declaration_list
     : struct_declaration {$$ = $1;}
-    | struct_declaration_list struct_declaration {addVariable(&$2,$1); $$ = $2;}
+    | struct_declaration_list struct_declaration {addVariable(&$1,$2); $$ = $1;}
     ;
 
 struct_declaration
@@ -400,20 +402,26 @@ remove_stage
 
 compound_statement
     : '{' '}'
-    | '{' new_stage statement_list '}' remove_stage
-    | '{' new_stage declaration_list '}' remove_stage
-    | '{' new_stage declaration_list statement_list '}' remove_stage
+    | '{' new_stage declaration_statement_list '}' remove_stage
     ;
 
-declaration_list
+declaration_statement_list
+	: declaration_statement_list declaration
+	| declaration_statement_list statement
+	| declaration
+	| statement {
+	/*declaration_list
     : declaration
     | declaration_list declaration
     ;
 
-statement_list
+	statement_list
     : statement
     | statement_list statement
-    ;
+    ; */ 
+	}
+	;
+
 
 expression_statement
     : ';'{/*return int?*/}
@@ -483,7 +491,7 @@ function_definition
         if(isExistingInStageFunction(stack,$2.fonctionD)) {fprintf(stderr,"\nPrevious declaration of %s was here\n",$2.name); yyerror("SEMANTIC ERROR");} 
 
         
-        $2.fonctionD->type->isFunction = 1;
+		$2.fonctionD->type->isFunction = 1;
         $1->isPtr = $2.isPtr;
         $2.fonctionD->type->functionType = initFunctionType();
         $2.fonctionD->type->functionType->returnType = $1;

@@ -32,6 +32,7 @@ struct abc a;
 a->x => x doit etre dans struct abc 
 */
 
+
 typedef struct _TypeStruct
 {
 	char* name; //nom de la structure
@@ -183,14 +184,17 @@ void typePrint(Type* type){
 }
 
 
+
+
 /*
-compare 2 type qui ne sont pas des fonction
+compare 2 type 
 */
 int compareType(Type* type1, Type* type2){
+
 	if(type1->isFunction){
 		return compareFunctionType(type1->functionType, type2->functionType);
 	}
-	if(type1->isPtr != type2->isPtr) return 0;
+	if(type1->isPtr!=type2->isPtr) return 0;
 	if(type1->isUnary!=type2->isUnary) return 0;
 	if(type1->isFunction!=type2->isFunction) return 0;
 
@@ -204,6 +208,37 @@ int compareType(Type* type1, Type* type2){
 
 	return 1;
 	
+}
+
+/*
+compare (dans une operation) 2 type 
+type* ==type* ->1
+type ==type ->1
+type1* == type2* ->2 (type1!= type2!)
+void -> 0 (-4 plus tard)
+int == type* ->2
+type* == int ->2
+*/
+int compareTypeForOp(Type* type1, Type* type2){
+
+
+	if((type1->isPtr == 0) && (type2->isPtr == 0)){
+		if((type1->isUnary == 1 && type1->unaryType == VOID_T) || (type2->isUnary == 1 && type2->unaryType == VOID_T)) return 0;//Aucune op possible avec void. 
+		return compareType(type1, type2);	
+	}
+	else if((type1->isPtr == 1) && (type2->isPtr == 1)){ 
+		if(compareType(type1,type2)){return 1;}
+		else{return 2;}
+	}
+	else{
+		if(type2->isPtr){//On met type2 a la place de type1
+			Type* tmp = type1;
+			type1 = type2;
+			type2 = tmp;
+		}
+		if(type2->isUnary && type2->unaryType == INT_T){return 2;}
+	}
+	return 0;
 }
 
 
@@ -648,6 +683,34 @@ Fonction* getCurrentFonction(Stack* stack){
 		current = current->next;
 	}
 	return NULL;
+}
+
+int mySizeOf(Type* type){
+	if(type->isPtr == 1){return sizeof(void*);}
+	else if(type->isUnary == 1){
+		if(type->unaryType == INT_T){return sizeof(int);}
+		else{return sizeof(void);}
+	}
+	else if(type->isFunction == 1) {return sizeof(void);}
+	else {/* struct */
+		Variable* current = type->typeStruct->variables;
+		int structSize = 0;
+		while(current != NULL){
+			structSize += mySizeOf(current->type);
+			current = current->next;
+		}
+		return structSize;
+	}
+}
+
+int relativeAdress(TypeStruct* ts, char* name){
+	Variable* current = ts->variables;
+	int relAdd = 0;
+	while(strcmp(name,current->name)!=0){
+		relAdd += mySizeOf(current->type);
+		current = current->next;
+	} 
+	return relAdd;
 }
 
 

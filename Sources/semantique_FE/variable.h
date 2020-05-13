@@ -104,6 +104,7 @@ void typeCopy(Type* dest ,Type* source);
 void freeType(Type* type);
 void typePrint(Type* type);
 int compareType(Type* type1, Type* type2);
+int compareTypeForOp(Type* type1, Type* type2);
 
 //==============================Variable Fonction===========================================
 
@@ -174,5 +175,8 @@ int isExistingInStageStruct(Stack* stack, TypeStruct* ts);
 int isExistingInStageFunction(Stack* stack, Fonction* fonction);
 Type* getLastDefineType(Stack* stack, char* name);
 Fonction* getCurrentFonction(Stack* stack);
+
+int mySizeOf(Type* type);
+int relativeAdress(TypeStruct* ts, char* name);
 
 #endif
