@@ -2,24 +2,52 @@
 #include <stdlib.h>
 #include <string.h>
 
-typedef enum { VOID_PTR_B, INT_B } BackEndType;
+typedef enum { VOID_PTR_BE, INT_BE } TypeBE;
 
-typedef struct _DataStorage
+typedef struct _Label
 {
-	TmpType type; 
-	char* nameChar;
+	int NumElse;
+	int NumIf;
 
-	struct _DeclarationStorage* next; 
-}DataStorage    
+} Label;
+
+typedef struct _Content
+{
+	char* data;
+
+	struct _Content* next; 
+} Content; 
+
+typedef struct _ToWrite
+{
+	Content* first;
+	Content* last;
+
+} ToWrite; 
 
 typedef struct _TmpVar
 {
-	TmpType type; 
+	TypeBE type; 
 	char name[10];
 	int isAvailable;	
 	
 	struct _TmpVar* next;
-} TmpVar
+} TmpVar;
+
+
+typedef struct _NodeBE
+{
+	TmpVar* tmpVarList;
+	ToWrite* declaration; 
+	ToWrite* toWrite;
+
+	struct _NodeBE* next;
+} NodeBE; 
+
+typedef struct _StackBE
+{
+	NodeBE* top;
+} StackBE;
 
 //###################### TMP VAR ###############################"
 TmpVar* initTmpVar(){
@@ -28,7 +56,7 @@ TmpVar* initTmpVar(){
 	return var;
 }
 
-TmpVar* getTmpVar(TmpVar** list, TmpType type){
+TmpVar* getTmpVar(TmpVar** list, TypeBE type){
 	TmpVar* current = *list;
 	while(current != NULL){
 		if(current->type == type && current->isAvailable == 1){
@@ -36,7 +64,7 @@ TmpVar* getTmpVar(TmpVar** list, TmpType type){
 		}	
 		current = current->next;
 	}
-	return createTmpVar(list, type);
+	return NULL;
 }
 
 void addTmpVar(TmpVar** list,TmpVar* tmpVar){
@@ -51,20 +79,26 @@ void addTmpVar(TmpVar** list,TmpVar* tmpVar){
 	current->next = tmpVar;	
 }
 
-TmpVar* createTmpVar(TmpVar** list, TmpType type){
+int tmpLen(TmpVar* list){
+
+	if(list == NULL) return 0;
+
 	int i = 1;
-	TmpVar* current = *list;
+	TmpVar* current = list;
 	while(current != NULL){
 		i++;
 		current = current->next;
 	}
+	return i;
+}
+
+TmpVar* createTmpVar(int nb, TypeBE type){
 	TmpVar* newVar = initTmpVar();
 	newVar->name = "_t";
-	strcat(newVar->name,i);
+	strcat(newVar->name,nb);
 	newVar->type = type;
 	newVar->isAvailable = 1;
 
-	addTmpVar(list, newVar);
 	return newVar;
 }
 
@@ -75,3 +109,32 @@ void makeAvailableTmpVar(TmpVar* list){
 		current = current->next;
 	}
 }
+
+//############################### STACK_BE ##############################
+
+Stack* newStackBE(){
+	StackBE* stack = malloc(sizeof(StackBE));
+	memset(stack,0,sizeof(StackBE));
+	return stack;
+}
+
+NodeBE* initNodeBE(){
+	NodeBE* node = malloc(sizeof(NodeBE));
+	memeset(node,0,sizeof(NodeBE));
+	return node;
+}
+
+
+
+void addStageToStackBE(StackBE* stack){
+	NodeBE* newStage= initNodeBE();
+	newStage->next = stack->top;
+	stack->top = newStage;
+}
+
+void removeStageToStackBE(StackBE* stack){
+	NodeBE* deleteStage = stack->top;
+	stack->top = deleteStage->next;
+	//TODO : ecrire(tostring) et free tmpVAR
+}
+

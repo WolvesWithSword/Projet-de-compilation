@@ -537,7 +537,7 @@ void printListNode(LinkedListNode* listNode){
 
 Stack* newStack(){
 	Stack* stack = malloc(sizeof(Stack));
-	memset(stack,0,sizeof(stack));
+	memset(stack,0,sizeof(Stack));
 	return stack;
 }
 
