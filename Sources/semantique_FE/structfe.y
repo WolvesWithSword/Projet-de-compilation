@@ -426,6 +426,42 @@ declaration_statement_list
 expression_statement
     : ';'{/*return int?*/}
     | expression ';' {$$ = $1;}
+	| declaration_specifiers declarator '=' expression ';' {
+		if($2.variableD == NULL && $2.fonctionD == NULL && $2.name != NULL) {
+
+            if(isExistingInStageName(stack,$2.name)) {fprintf(stderr,"\nPrevious declaration of %s was here\n",$2.name); yyerror("SEMANTIC ERROR");}     
+        
+            $1->isPtr = $2.isPtr;
+            Variable* var = initVariable();
+            var->name = $2.name;
+            var->type = $1;
+            addVariableToStack(stack,var);
+
+			/* on verifie ce que l'on affecte */
+			int res = compareTypeForOp(var->type,&$4.type);
+			if(res == 2){fprintf(stderr,"\nWarning : makes integer from pointer\n");}
+            else if(res == 0){fprintf(stderr,"\nError: incompatible types when assigning\n"); yyerror("SEMANTIC ERROR");}
+        }
+        else if($2.variableD == NULL && $2.fonctionD != NULL && $2.name != NULL) {
+
+            if(isExistingInStageFunction(stack,$2.fonctionD)) {fprintf(stderr,"\nPrevious declaration of %s was here\n",$2.name); yyerror("SEMANTIC ERROR");} 
+                
+            $2.fonctionD->type->isFunction = 1;
+            $1->isPtr = $2.isPtr;
+            $2.fonctionD->type->functionType = initFunctionType();
+            $2.fonctionD->type->functionType->returnType = $1;
+			$2.fonctionD->type->functionType->returnType->isPtr = $2.isPtr;
+            $2.fonctionD->type->functionType->parameters = variableToParameterType($2.fonctionD->variables);
+               
+            addFonctionToStack(stack,$2.fonctionD);
+
+			/* on verifie ce que l'on affecte */
+			int res = compareTypeForOp($2.fonctionD->type,&$4.type);
+			if(res == 2){fprintf(stderr,"\nWarning : makes integer from pointer\n");}
+            else if(res == 0){fprintf(stderr,"\nError: incompatible types when assigning\n"); yyerror("SEMANTIC ERROR");}
+        }
+        else{fprintf(stderr,"\ndeclaration error\n"); yyerror("SEMANTIC ERROR");}
+	}
     ;
 
 selection_statement
@@ -450,18 +486,19 @@ iteration_statement
 			fprintf(stderr,"\nif need a int value\n"); yyerror("SEMANTIC ERROR"); 
 		}
 	}
-    | FOR '(' expression_statement expression_statement expression ')' statement {
-		if($4.type.isPtr==1){printf("\nWarning: use pointer instead of int\n");}
-		if(!($4.type.isPtr==1 || ($4.type.isPtr==0 && $4.type.isUnary==1 && $4.type.unaryType == INT_T))){
+    | FOR '(' new_stage expression_statement expression_statement expression ')' statement remove_stage{
+		if($5.type.isPtr==1){printf("\nWarning: use pointer instead of int\n");}
+		if(!($5.type.isPtr==1 || ($5.type.isPtr==0 && $5.type.isUnary==1 && $5.type.unaryType == INT_T))){
 			fprintf(stderr,"\nif need a int value\n"); yyerror("SEMANTIC ERROR"); 
 		}
 	}
-	| FOR '(' expression_statement expression_statement ')' statement{
-		if($4.type.isPtr==1){printf("\nWarning: use pointer instead of int\n");}
-		if(!($4.type.isPtr==1 || ($4.type.isPtr==0 && $4.type.isUnary==1 && $4.type.unaryType == INT_T))){
+	| FOR '(' new_stage expression_statement expression_statement ')' statement remove_stage {
+		if($5.type.isPtr==1){printf("\nWarning: use pointer instead of int\n");}
+		if(!($5.type.isPtr==1 || ($5.type.isPtr==0 && $5.type.isUnary==1 && $5.type.unaryType == INT_T))){
 			fprintf(stderr,"\nif need a int value\n"); yyerror("SEMANTIC ERROR"); 
 		}
 	}
+	
     ;
 
 jump_statement
