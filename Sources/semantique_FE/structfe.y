@@ -4,6 +4,7 @@
     #include <stdlib.h>
     #include <string.h>
     #include "variable.h"
+    #include "translate.h"
     
     int yylex();    
     int yyerror();
@@ -64,11 +65,17 @@ primary_expression
     : IDENTIFIER {
     	Type* type = getLastDefineType(stack,$1);
         if(type==NULL) {fprintf(stderr,"\n %s : not defined\n",$1); yyerror("SEMANTIC ERROR");}
-		ExpressionTransit exp; exp.nameId = $1; exp.isId = 1; exp.isAffectable = 1; typeCopy(&exp.type,type);$$ = exp;
+		ExpressionTransit exp = {0}; exp.nameId = $1; exp.isId = 1; exp.isAffectable = 1; typeCopy(&exp.type,type);
+		strcat(exp.backend.expression,$1);
+		$$ = exp;
 	}
     | CONSTANT {
     	Type type = {0}; type.isUnary = 1; type.unaryType = INT_T;
-		ExpressionTransit exp; exp.nameId = NULL; exp.isId = 0; exp.isAffectable = 0; exp.type = type; $$ = exp;
+		ExpressionTransit exp = {0}; exp.nameId = NULL; exp.isId = 0; exp.isAffectable = 0; exp.type = type; 
+		char buff[20]; sprintf(buff,"%d",$1);
+		strcat(exp.backend.expression,buff);
+		$$ = exp;
+		
 	}
     | '(' expression ')' {$$ = $2;}
     ;
@@ -78,7 +85,18 @@ postfix_expression
     | postfix_expression '(' ')' {
     	if($1.type.isFunction){
             if($1.type.functionType->parameters ==NULL) {
-				ExpressionTransit exp; exp.nameId = NULL; exp.isId = 0; typeCopy(&exp.type,$1.type.functionType->returnType);exp.isAffectable = 0;
+				ExpressionTransit exp = {0}; exp.nameId = NULL; exp.isId = 0; typeCopy(&exp.type,$1.type.functionType->returnType);exp.isAffectable = 0;
+				if($1.backend.hasOp){
+					TypeBE typeBE =  typeToBackend(&$1.type);
+					TmpVar* tmpVar = getTmpVarStackBE(stackBE,typeBE);
+					char* expression = concatenateForOperation(tmpVar->name," = ",$1.backend.expression,1);
+					addToWriteStackBE(stackBE,expression);
+					strcpy(exp.backend.expression,tmpVar->name);
+					exp.backend.isTmpVar = 1;
+					exp.backend.tmpVar = tmpVar;
+				}
+				strcat(exp.backend.expression,"()");
+				exp.backend.hasOp=1;
 				$$ = exp;
 			}
             else{ fprintf(stderr,"\n%s :bad parameter to call function\n",$1.nameId); yyerror("SEMANTIC ERROR");}
@@ -89,6 +107,19 @@ postfix_expression
         if($1.type.isFunction){
             if(compareParameterType($1.type.functionType->parameters,$3)) {
 				ExpressionTransit exp; exp.nameId = NULL; exp.isId = 0; typeCopy(&exp.type,$1.type.functionType->returnType); exp.isAffectable = 0;
+
+				if($1.backend.hasOp){ /*TODO mettre les argument*/
+					TypeBE typeBE =  typeToBackend(&$1.type);
+					TmpVar* tmpVar = getTmpVarStackBE(stackBE,typeBE);
+					char* expression = concatenateForOperation(tmpVar->name," = ",$1.backend.expression,1);
+					addToWriteStackBE(stackBE,expression);
+					strcpy(exp.backend.expression,tmpVar->name);
+					exp.backend.isTmpVar = 1;
+					exp.backend.tmpVar = tmpVar;
+				}
+				strcat(exp.backend.expression,"()");
+				exp.backend.hasOp=1;
+
 				$$ = exp;
 			}
             else{ fprintf(stderr,"\n%s : bad parameter to call function\n",$1.nameId); yyerror("SEMANTIC ERROR");}
@@ -102,7 +133,36 @@ postfix_expression
                 Variable* var = getVariable($1.type.typeStruct->variables,$3);
                 if(var==NULL){fprintf(stderr,"\n struct %s : not has %s\n",$1.type.typeStruct->name,$3); yyerror("SEMANTIC ERROR");}
                 else{
+
 					ExpressionTransit exp = $1;
+					exp.backend.isTmpVar = 0;
+					TmpVar* tmpVar;
+					if($1.backend.hasOp){
+						tmpVar = getTmpVarStackBE(stackBE,VOID_PTR_BE);
+						char* expression = concatenateForOperation(tmpVar->name," = ",$1.backend.expression,1);
+						addToWriteStackBE(stackBE,expression);
+						strcpy(exp.backend.expression,tmpVar->name);
+						exp.backend.isTmpVar = 1;
+						exp.backend.tmpVar = tmpVar;
+					}
+					int adrPtr = relativeAdress($1.type.typeStruct,$3);
+					if(adrPtr!=0){ /*tmpvar = tmpvar + ptrVariable*/
+						char buff[20]; sprintf(buff,"%d",adrPtr);
+						char* expression = concatenateForOperation(exp.backend.expression, " + ", buff,0);
+						if(tmpVar==NULL) tmpVar = getTmpVarStackBE(stackBE,VOID_PTR_BE);
+						char* expressionResult = concatenateForOperation(tmpVar->name," = ",expression,1);
+						addToWriteStackBE(stackBE,expressionResult);
+						free(expression);
+						strcpy(exp.backend.expression,tmpVar->name);
+						exp.backend.isTmpVar = 1;
+						exp.backend.tmpVar = tmpVar;
+					}
+					char buff[50];
+					strcpy(buff,"*");
+					strcat(buff,exp.backend.expression);
+					strcpy(exp.backend.expression,buff);
+					exp.backend.hasOp=1;
+					
 					exp.isId = 0;
 					exp.nameId = NULL;
 					exp.isAffectable = 1;
@@ -120,7 +180,7 @@ postfix_expression
 argument_expression_list
     : expression {
        	Type* type = initType();typeCopy(type,&$1.type); ParameterType* pt = initParameterType();
-        pt->type =type; ;$$=pt; /*TODO enlever le malloc*/
+        pt->type =type; ;$$=pt; /*TODO faire le free*/
     }
    	| argument_expression_list ',' expression {
 		addParameterType(&$1,&$3.type);/*Liste des argument d'un appelle de fonction*/
@@ -130,7 +190,6 @@ argument_expression_list
 unary_expression
     : postfix_expression {$$ = $1;}
     | unary_operator unary_expression {
-        /*TODO changer la gestion pointeur d epointeur*/
         if($1==1){
 			if($2.type.isPtr==0){
 				if($2.isId==1){ $2.type.isPtr=1; $2.isId = 0; $2.nameId=NULL; $2.isAffectable = 0; $$=$2;}
@@ -162,13 +221,77 @@ multiplicative_expression
     : unary_expression {$$ = $1;}
     | multiplicative_expression '*' unary_expression {
 		if(($1.type.isUnary == 1 && $1.type.unaryType == INT_T) && ($3.type.isUnary == 1 && $3.type.unaryType == INT_T)) {
-			$1.isId = 0;$1.isAffectable = 0; $$ = $1;
+			$1.isId = 0;$1.isAffectable = 0;
+
+			char newExpRight[100];
+			TmpVar* tmpVarRight;
+			if($3.backend.hasOp){
+				TypeBE typeBE =  typeToBackend(&$3.type);
+				tmpVarRight = getTmpVarStackBE(stackBE,typeBE);
+				char* expression = concatenateForOperation(tmpVarRight->name," = ",$3.backend.expression,1);
+				addToWriteStackBE(stackBE,expression);
+				strcpy(newExpRight,tmpVarRight->name);
+			}
+			else{strcpy(newExpRight,$3.backend.expression);}
+
+			char newExpLeft[100];
+			TmpVar* tmpVarLeft;
+			if($1.backend.hasOp){
+				TypeBE typeBE =  typeToBackend(&$1.type);
+				tmpVarLeft = getTmpVarStackBE(stackBE,typeBE);
+				char* expression = concatenateForOperation(tmpVarLeft->name," = ",$1.backend.expression,1);
+				addToWriteStackBE(stackBE,expression);
+				strcpy(newExpLeft,tmpVarLeft->name);
+				$1.backend.isTmpVar = 1;
+			}
+			else{strcpy(newExpLeft,$1.backend.expression);}
+
+			/*TODO: opti pour reutiliser les meme vartmp*/
+			
+			char * exp = concatenateForOperation(newExpLeft, " * ", newExpRight,0);
+			strcpy($1.backend.expression,exp);
+			//free(exp);
+			$1.backend.hasOp=1;
+			$$ = $1;
 		}
 		else {fprintf(stderr,"\nmultiplication between wrong types\n"); yyerror("SEMANTIC ERROR");} 
 	}
     | multiplicative_expression '/' unary_expression {
 		if(($1.type.isUnary == 1 && $1.type.unaryType == INT_T) && ($3.type.isUnary == 1 && $3.type.unaryType == INT_T)) {
-			$1.isId = 0; $1.isAffectable = 0; $$ = $1;}
+			$1.isId = 0; $1.isAffectable = 0;
+
+			
+			char newExpRight[100];
+			TmpVar* tmpVarRight;
+			if($3.backend.hasOp){
+				TypeBE typeBE =  typeToBackend(&$3.type);
+				tmpVarRight = getTmpVarStackBE(stackBE,typeBE);
+				char* expression = concatenateForOperation(tmpVarRight->name," = ",$3.backend.expression,1);
+				addToWriteStackBE(stackBE,expression);
+				strcpy(newExpRight,tmpVarRight->name);
+			}
+			else{strcpy(newExpRight,$3.backend.expression);}
+
+			char newExpLeft[100];
+			TmpVar* tmpVarLeft;
+			if($1.backend.hasOp){
+				TypeBE typeBE =  typeToBackend(&$1.type);
+				tmpVarLeft = getTmpVarStackBE(stackBE,typeBE);
+				char* expression = concatenateForOperation(tmpVarLeft->name," = ",$1.backend.expression,1);
+				addToWriteStackBE(stackBE,expression);
+				strcpy(newExpLeft,tmpVarLeft->name);
+				$1.backend.isTmpVar = 1;
+			}
+			else{strcpy(newExpLeft,$1.backend.expression);}
+
+			/*TODO: opti pour reutiliser les meme vartmp*/
+			
+			char * exp = concatenateForOperation(newExpLeft, " / ", newExpRight,0);
+			strcpy($1.backend.expression,exp);
+			//free(exp);
+			$1.backend.hasOp=1;
+
+			$$ = $1;}
 		else {fprintf(stderr,"\ndivision between wrong types\n"); yyerror("SEMANTIC ERROR");} 
 	}
     ; 	
@@ -177,19 +300,181 @@ additive_expression
     : multiplicative_expression {$$ = $1;}
     | additive_expression '+' multiplicative_expression{
 		if(($1.type.isUnary == 1 && $1.type.unaryType == INT_T) && ($3.type.isUnary == 1 && $3.type.unaryType == INT_T)) {
-			$1.isId = 0; $1.isAffectable = 0; $$ = $1;} /* int + int = int */
+			$1.isId = 0; $1.isAffectable = 0;
+			
+			char newExpRight[100];
+			TmpVar* tmpVarRight;
+			if($3.backend.hasOp){
+				
+				TypeBE typeBE =  typeToBackend(&$3.type);
+				tmpVarRight = getTmpVarStackBE(stackBE,typeBE);
+				char* expression = concatenateForOperation(tmpVarRight->name," = ",$3.backend.expression,1);
+				addToWriteStackBE(stackBE,expression);
+				strcpy(newExpRight,tmpVarRight->name);
+			}
+			else{strcpy(newExpRight,$3.backend.expression);}
+
+			char newExpLeft[100];
+			TmpVar* tmpVarLeft;
+			if($1.backend.hasOp){
+	
+				TypeBE typeBE =  typeToBackend(&$1.type);
+				tmpVarLeft = getTmpVarStackBE(stackBE,typeBE);
+				char* expression = concatenateForOperation(tmpVarLeft->name," = ",$1.backend.expression,1);
+				addToWriteStackBE(stackBE,expression);
+				strcpy(newExpLeft,tmpVarLeft->name);
+				$1.backend.isTmpVar = 1;
+	
+			}
+			else{strcpy(newExpLeft,$1.backend.expression);}
+
+			/*TODO: opti pour reutiliser les meme vartmp*/
+			
+			char * exp = concatenateForOperation(newExpLeft, " + ", newExpRight,0);
+			strcpy($1.backend.expression,exp);
+			//free(exp);
+			$1.backend.hasOp=1;
+
+			$$ = $1;} /* int + int = int */
 		else if(($1.type.isPtr == 1) && ($3.type.isUnary == 1 && $3.type.unaryType == INT_T)) {
-			$1.isId = 0; $1.isAffectable = 0; $$ = $1;} /* ptr + int = ptr */
+			$1.isId = 0; $1.isAffectable = 0;
+
+			char newExpRight[100];
+			TmpVar* tmpVarRight;
+			if($3.backend.hasOp){
+				TypeBE typeBE =  typeToBackend(&$3.type);
+				tmpVarRight = getTmpVarStackBE(stackBE,typeBE);
+				char* expression = concatenateForOperation(tmpVarRight->name," = ",$3.backend.expression,1);
+				addToWriteStackBE(stackBE,expression);
+				strcpy(newExpRight,tmpVarRight->name);
+			}
+			else{strcpy(newExpRight,$3.backend.expression);}
+
+			char newExpLeft[100];
+			TmpVar* tmpVarLeft;
+			if($1.backend.hasOp){
+				TypeBE typeBE =  typeToBackend(&$1.type);
+				tmpVarLeft = getTmpVarStackBE(stackBE,typeBE);
+				char* expression = concatenateForOperation(tmpVarLeft->name," = ",$1.backend.expression,1);
+				addToWriteStackBE(stackBE,expression);
+				strcpy(newExpLeft,tmpVarLeft->name);
+				$1.backend.isTmpVar = 1;
+			}
+			else{strcpy(newExpLeft,$1.backend.expression);}
+
+			/*TODO: opti pour reutiliser les meme vartmp*/
+			
+			char * exp = concatenateForOperation(newExpLeft, " + ", newExpRight,0);
+			strcpy($1.backend.expression,exp);
+			//free(exp);
+			$1.backend.hasOp=1;
+
+		 	$$ = $1;} /* ptr + int = ptr */
 		else {fprintf(stderr,"\n+ :  bad use of pointers\n"); yyerror("SEMANTIC ERROR");} 
 	}
     | additive_expression '-' multiplicative_expression{
-		if(($1.type.isUnary == 1 && $1.type.unaryType == INT_T) && ($3.type.isUnary == 1 && $3.type.unaryType == INT_T)) {
-			$1.isId = 0;$$ = $1;} /* int + int = int */
-		else if(($1.type.isPtr == 1) && ($3.type.isUnary == 1 && $3.type.unaryType == INT_T)) {
-			$1.isId = 0; $1.isAffectable = 0; $$ = $1;} /* ptr + int = ptr */
-		else if(($1.type.isPtr == 1) && ($3.type.isPtr == 1)) {
+		if(($1.type.isUnary == 1 && $1.type.unaryType == INT_T) && ($3.type.isUnary == 1 && $3.type.unaryType == INT_T)) {/* int - int = int */
+			$1.isId = 0;
+
+			char newExpRight[100];
+			TmpVar* tmpVarRight;
+			if($3.backend.hasOp){
+				TypeBE typeBE =  typeToBackend(&$3.type);
+				tmpVarRight = getTmpVarStackBE(stackBE,typeBE);
+				char* expression = concatenateForOperation(tmpVarRight->name," = ",$3.backend.expression,1);
+				addToWriteStackBE(stackBE,expression);
+				strcpy(newExpRight,tmpVarRight->name);
+			}
+			else{strcpy(newExpRight,$3.backend.expression);}
+
+			char newExpLeft[100];
+			TmpVar* tmpVarLeft;
+			if($1.backend.hasOp){
+				TypeBE typeBE =  typeToBackend(&$1.type);
+				tmpVarLeft = getTmpVarStackBE(stackBE,typeBE);
+				char* expression = concatenateForOperation(tmpVarLeft->name," = ",$1.backend.expression,1);
+				addToWriteStackBE(stackBE,expression);
+				strcpy(newExpLeft,tmpVarLeft->name);
+				$1.backend.isTmpVar = 1;
+			}
+			else{strcpy(newExpLeft,$1.backend.expression);}
+
+			/*TODO: opti pour reutiliser les meme vartmp*/
+			
+			char * exp = concatenateForOperation(newExpLeft, " + ", newExpRight,0);
+			strcpy($1.backend.expression,exp);
+			//free(exp);
+			$1.backend.hasOp=1;
+			$$ = $1;} 
+		else if(($1.type.isPtr == 1) && ($3.type.isUnary == 1 && $3.type.unaryType == INT_T)) {/* ptr - int = ptr */
+			$1.isId = 0; $1.isAffectable = 0;
+
+			char newExpRight[100];
+			TmpVar* tmpVarRight;
+			if($3.backend.hasOp){
+				TypeBE typeBE =  typeToBackend(&$3.type);
+				tmpVarRight = getTmpVarStackBE(stackBE,typeBE);
+				char* expression = concatenateForOperation(tmpVarRight->name," = ",$3.backend.expression,1);
+				addToWriteStackBE(stackBE,expression);
+				strcpy(newExpRight,tmpVarRight->name);
+			}
+			else{strcpy(newExpRight,$3.backend.expression);}
+
+			char newExpLeft[100];
+			TmpVar* tmpVarLeft;
+			if($1.backend.hasOp){
+				TypeBE typeBE =  typeToBackend(&$1.type);
+				tmpVarLeft = getTmpVarStackBE(stackBE,typeBE);
+				char* expression = concatenateForOperation(tmpVarLeft->name," = ",$1.backend.expression,1);
+				addToWriteStackBE(stackBE,expression);
+				strcpy(newExpLeft,tmpVarLeft->name);
+				$1.backend.isTmpVar = 1;
+			}
+			else{strcpy(newExpLeft,$1.backend.expression);}
+
+			/*TODO: opti pour reutiliser les meme vartmp*/
+			
+			char * exp = concatenateForOperation(newExpLeft, " + ", newExpRight,0);
+			strcpy($1.backend.expression,exp);
+			//free(exp);
+			$1.backend.hasOp=1;
+
+ 			$$ = $1;} 
+		else if(($1.type.isPtr == 1) && ($3.type.isPtr == 1)) {/* ptr - ptr = int */
 			Type type = {0}; type.isUnary = 1; type.unaryType = INT_T;
-			ExpressionTransit exp; exp.nameId = NULL; exp.isId = 0; exp.type = type; $$ = exp;}/* ptr - ptr = int */
+			ExpressionTransit exp; exp.nameId = NULL; exp.isId = 0; exp.type = type;
+	
+			char newExpRight[100];
+			TmpVar* tmpVarRight;
+			if($3.backend.hasOp){
+				TypeBE typeBE =  typeToBackend(&$3.type);
+				tmpVarRight = getTmpVarStackBE(stackBE,typeBE);
+				char* expression = concatenateForOperation(tmpVarRight->name," = ",$3.backend.expression,1);
+				addToWriteStackBE(stackBE,expression);
+				strcpy(newExpRight,tmpVarRight->name);
+			}
+			else{strcpy(newExpRight,$3.backend.expression);}
+
+			char newExpLeft[100];
+			TmpVar* tmpVarLeft;
+			if($1.backend.hasOp){
+				TypeBE typeBE =  typeToBackend(&$1.type);
+				tmpVarLeft = getTmpVarStackBE(stackBE,typeBE);
+				char* expression = concatenateForOperation(tmpVarLeft->name," = ",$1.backend.expression,1);
+				addToWriteStackBE(stackBE,expression);
+				strcpy(newExpLeft,tmpVarLeft->name);
+				exp.backend.isTmpVar = 1;
+			}
+			else{strcpy(newExpLeft,$1.backend.expression);}
+
+			/*TODO: opti pour reutiliser les meme vartmp*/
+			
+			char * expStr = concatenateForOperation(newExpLeft, " * ", newExpRight,0);
+			strcpy(exp.backend.expression,expStr);
+			//free(expStr);
+			$1.backend.hasOp=1;			
+
+			$$ = exp;}
 		else {fprintf(stderr,"\n- :  bad use of pointers\n"); yyerror("SEMANTIC ERROR");} 
 	}
     ;
@@ -258,7 +543,7 @@ expression
 			if(res == 1){
 				$$.isAffectable = 0; $$ = $3;
 			}
-			else if(res == 2){fprintf(stderr,"\nWarning : makes integer from pointer\n");}
+			else if(res == 2){fprintf(stderr,"\nWarning : makes integer from pointer\n"); $$.isAffectable = 0; $$ = $3;}
             else{fprintf(stderr,"\nError: incompatible types when assigning\n"); yyerror("SEMANTIC ERROR");}
 		}
         else{fprintf(stderr,"\nError: lvalue required as left operand of assignement\n"); yyerror("SEMANTIC ERROR");}
@@ -395,10 +680,10 @@ statement
     ;
 
 new_stage
-    : {printf("\nadd stage\n");addStageToStack(stack);};
+    : {printf("\nadd stage\n");addStageToStack(stack);addStageToStackBE(stackBE);};
 
 remove_stage
-    : {printf("\nremove stage\n");printStack(stack);removeStageToStack(stack);};
+    : {printf("\nremove stage\n");printStack(stack);removeStageToStack(stack);printf("\n=====================================9999999\n");printBackend(stackBE->top->toWrite);printf("\n=====================================9999999\n");removeStageToStackBE(stackBE);};
 
 compound_statement
     : '{' '}'
@@ -536,6 +821,9 @@ function_definition
         $2.fonctionD->type->functionType->parameters = variableToParameterType($2.fonctionD->variables);
         addFonctionToStack(stack,$2.fonctionD);
         stack->top->currentFunction = $2.fonctionD;
+
+
+
     } 
     compound_statement
     ;
@@ -556,9 +844,11 @@ int main(int argc, char *argv[])
     } 
     else {
         stack = newStack();
+		stackBE = newStackBE();
+		addStageToStackBE(stackBE);
         addStageToStack(stack);
         yyparse();
-            printf("Parse done\n");
+       	printf("Parse done\n");
     }
         return 0;
 }

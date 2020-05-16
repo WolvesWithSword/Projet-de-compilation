@@ -1,8 +1,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "variable.h"
 
-typedef enum { VOID_PTR_BE, INT_BE } TypeBE;
+typedef enum { VOID_PTR_BE, INT_BE, VOID_BE } TypeBE;
 
 typedef struct _Label
 {
@@ -49,15 +50,76 @@ typedef struct _StackBE
 	NodeBE* top;
 } StackBE;
 
-//###################### TMP VAR ###############################"
+//###################### Gestion des type ######################
+
+TypeBE typeToBackend(Type* type){
+	if(type->isPtr){
+		return VOID_PTR_BE;
+	}
+	if(type->isUnary){
+		switch(type->unaryType){
+			case VOID_T:
+				return VOID_BE;
+			case INT_T:
+				return INT_BE;
+			default : //normalement impossible
+				fprintf(stderr,"wrong type");
+				return VOID_PTR_BE;
+		}
+	}
+	return VOID_PTR_BE;
+}
+
+char* toStringTypeBE(TypeBE type){
+	switch(type){
+		case VOID_BE: return "void ";
+		case VOID_PTR_BE: return "void* ";
+		case INT_BE: return "int ";
+		default : //normalement impossible
+			fprintf(stderr,"wrong type");
+			return "void* ";
+	}
+}
+
+//###################### ToWrite ###############################
+
+ToWrite* initToWrite(){
+	ToWrite* var = malloc(sizeof(ToWrite));
+	memset(var,0,sizeof(ToWrite));
+	return var;
+}
+
+Content* initContent(){
+	Content* content = malloc(sizeof(Content));
+	memset(content,0,sizeof(Content));
+	return content;
+}
+
+void addToWriteContent(ToWrite* toWrite,Content* content){
+	if(toWrite->last==NULL){
+		toWrite->first = content;
+	}
+	else{
+		toWrite->last->next = content;
+	}
+	//au cas ou on ajoute une liste de content
+	while(content->next!=NULL){
+		content = content->next;
+	}
+	toWrite->last = content;
+}
+
+
+
+//###################### TMP VAR ###############################
 TmpVar* initTmpVar(){
 	TmpVar* var = malloc(sizeof(TmpVar));
 	memset(var,0,sizeof(TmpVar));
 	return var;
 }
 
-TmpVar* getTmpVar(TmpVar** list, TypeBE type){
-	TmpVar* current = *list;
+TmpVar* getTmpVar(TmpVar* list, TypeBE type){
+	TmpVar* current = list;
 	while(current != NULL){
 		if(current->type == type && current->isAvailable == 1){
 			return current;
@@ -94,8 +156,10 @@ int tmpLen(TmpVar* list){
 
 TmpVar* createTmpVar(int nb, TypeBE type){
 	TmpVar* newVar = initTmpVar();
-	newVar->name = "_t";
-	strcat(newVar->name,nb);
+	strcat(newVar->name,"_t");
+	char buff[5];
+	sprintf(buff,"%d",nb);
+	strcat(newVar->name,buff);
 	newVar->type = type;
 	newVar->isAvailable = 1;
 
@@ -110,9 +174,20 @@ void makeAvailableTmpVar(TmpVar* list){
 	}
 }
 
+void makeAvailableTmpVarByName(TmpVar* list,char* name){
+	TmpVar* current = list;
+	while(current != NULL){
+		if(strcmp(current->name,name)==0){
+			current->isAvailable = 1;
+			return;
+		}
+		current = current->next;
+	}
+}
+
 //############################### STACK_BE ##############################
 
-Stack* newStackBE(){
+StackBE* newStackBE(){
 	StackBE* stack = malloc(sizeof(StackBE));
 	memset(stack,0,sizeof(StackBE));
 	return stack;
@@ -120,7 +195,9 @@ Stack* newStackBE(){
 
 NodeBE* initNodeBE(){
 	NodeBE* node = malloc(sizeof(NodeBE));
-	memeset(node,0,sizeof(NodeBE));
+	memset(node,0,sizeof(NodeBE));
+	node->declaration = initToWrite();
+	node->toWrite = initToWrite();
 	return node;
 }
 
@@ -133,8 +210,73 @@ void addStageToStackBE(StackBE* stack){
 }
 
 void removeStageToStackBE(StackBE* stack){
-	NodeBE* deleteStage = stack->top;
-	stack->top = deleteStage->next;
-	//TODO : ecrire(tostring) et free tmpVAR
+	//NodeBE* deleteStage = stack->top;
+	//stack->top = deleteStage->next;
+	//TODO affcete au towrite du nouveau top toutes les declaration
+	//puis ajouter le towrite des expression
 }
+
+TmpVar* getTmpVarStackBE(StackBE* stack,TypeBE type){
+	TmpVar* tmpVar = getTmpVar(stack->top->tmpVarList,type);
+	if(tmpVar==NULL){
+		int n = tmpLen(stack->top->tmpVarList);
+		tmpVar = createTmpVar(n,type);
+		addTmpVar(&stack->top->tmpVarList,tmpVar);
+	}
+	tmpVar->isAvailable = 0;
+	return tmpVar;
+}
+
+void addToWriteStackBEWithMalloc(StackBE* stack,char* write){
+	int n = strlen(write)+2;
+	char* str = malloc(sizeof(char)*n);
+	strcpy(str,write);
+	Content* elt = initContent();
+	elt->data = str;
+	addToWriteContent(stack->top->toWrite,elt);
+}
+
+void addToWriteStackBE(StackBE* stack,char* write){
+	Content* elt = initContent();
+	elt->data = write;
+	addToWriteContent(stack->top->toWrite,elt);
+	
+}
+
+void addDeclarationStackBE(StackBE* stack,char* write){
+	Content* elt = initContent();
+	elt->data = write;
+	addToWriteContent(stack->top->declaration,elt);
+	
+}
+
+char* concatenateForOperation(char* exp1,char* op,char* exp2,short endLine){
+	int len = strlen(exp1)+strlen(op)+strlen(exp2)+4;
+	char* res = malloc(sizeof(char)*len);
+	strcpy(res,exp1);
+	strcat(res,op);
+	strcat(res,exp2);
+	if(endLine){
+		strcat(res,";\n");
+	}
+	return res;
+}
+
+void* printBackend(ToWrite* write){
+	Content* current = write->first;
+	while(current!=NULL){
+		fprintf(stdout,"%s",current->data);
+		current = current->next;
+	}
+	
+}
+
+
+
+
+
+
+	
+	
+
 

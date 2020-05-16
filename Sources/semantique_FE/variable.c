@@ -8,6 +8,7 @@ struct _TypeStruct;
 struct _Variable;
 struct _ParameterType;
 struct _FunctionType;
+struct _TmpVar;
 /*====================Type des variable==============*/
 
 typedef enum { VOID_T, INT_T } UnaryType;
@@ -117,13 +118,26 @@ typedef struct _Transit
 	int isPtr;
 } Transit;
 
+typedef struct _BackendTransit{
+	int hasOp;
+	char expression[200];
+	int isTmpVar;
+	struct _TmpVar* tmpVar;
+} BackendTransit;
+
+
 typedef struct _Expression
 {
 	Type type;
 	int isId;
 	int isAffectable;
 	char* nameId;
+	
+	BackendTransit backend;
+	
 } ExpressionTransit;
+
+
 
 //============================ implicite declaration========================================
 void freeTypeStruct(TypeStruct* typeStruct);
