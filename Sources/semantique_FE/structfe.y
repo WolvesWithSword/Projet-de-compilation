@@ -192,23 +192,78 @@ unary_expression
     | unary_operator unary_expression {
         if($1==1){
 			if($2.type.isPtr==0){
-				if($2.isId==1){ $2.type.isPtr=1; $2.isId = 0; $2.nameId=NULL; $2.isAffectable = 0; $$=$2;}
+				if($2.isId==1){ 
+					$2.type.isPtr=1; $2.isId = 0; $2.nameId=NULL; $2.isAffectable = 0; 
+	
+					affectToTmp(stackBE, &$2.backend, typeToBackend(&$2.type));
+					concatBeforeContent($2.backend.expression,"&");
+					$2.backend.hasOp = 1;
+					
+					$$=$2;
+				}
 				else {fprintf(stderr,"\n& can be use only on identifieur\n"); yyerror("SEMANTIC ERROR");}
 			}
 			else {fprintf(stderr,"\ncan be use pointer of pointer\n"); yyerror("SEMANTIC ERROR");}
         }
 		else if($1==0){
-			if($2.type.isPtr==1) {$2.type.isPtr=0; $2.isId = 0; $2.isAffectable = 1; $2.nameId=NULL; $$=$2;}
+			if($2.type.isPtr==1) {
+				$2.type.isPtr=0; $2.isId = 0; $2.isAffectable = 1; $2.nameId=NULL; 
+
+				affectToTmp(stackBE, &$2.backend, typeToBackend(&$2.type));
+				concatBeforeContent($2.backend.expression,"*");
+				$2.backend.hasOp = 1;
+
+				$$=$2;
+			}
 			else{fprintf(stderr,"\n * can be use only on pointer\n"); yyerror("SEMANTIC ERROR");}
 		}
         else if($1==2 && $2.type.isPtr==0 && $2.type.isUnary==1 && $2.type.unaryType == INT_T){
-        	$2.isId = 0;$2.isAffectable = 0; $2.nameId=NULL ;$$ = $2;}
+        	$2.isId = 0;$2.isAffectable = 0; $2.nameId=NULL;
+	
+			affectToTmp(stackBE, &$2.backend, typeToBackend(&$2.type));
+			concatBeforeContent($2.backend.expression,"-");
+			$2.backend.hasOp = 1;
+
+			$$ = $2;
+		}
         else {fprintf(stderr,"\n bad use of unaryOperator\n"); yyerror("SEMANTIC ERROR");}
 	}
     | SIZEOF unary_expression {
-		/*rajouter parenthese??????????*/
     	Type type = {0}; type.isUnary = 1; type.unaryType = INT_T;
-    	ExpressionTransit exp; exp.nameId = NULL; exp.isId = 0;exp.isAffectable = 0; exp.type = type; $$ = exp; /*TODO peut etre un type*/
+    	ExpressionTransit exp = {0}; exp.type = type;  /*TODO peut etre un type*/
+		
+		int size = mySizeOf(&$2.type);
+		char buff[5];
+		sprintf(buff,"%d",size);
+		exp.backend.expression = initContent();
+		concatContent(exp.backend.expression,buff);
+		freeContent($2.backend.expression);
+
+		$$ = exp;
+    }
+	| SIZEOF '('type_specifier')' {
+		Type type = {0}; type.isUnary = 1; type.unaryType = INT_T;
+    	ExpressionTransit exp = {0}; exp.type = type;  /*TODO peut etre un type*/
+		
+		int size = mySizeOf($3);
+		char buff[5];
+		sprintf(buff,"%d",size);
+		exp.backend.expression = initContent();
+		concatContent(exp.backend.expression,buff);
+
+		$$ = exp;
+    }
+    | SIZEOF '('type_specifier '*' ')'{
+		Type type = {0}; type.isUnary = 1; type.unaryType = INT_T;
+    	ExpressionTransit exp = {0}; exp.type = type;  /*TODO peut etre un type*/
+		
+		int size = sizeof(void *);
+		char buff[5];
+		sprintf(buff,"%d",size);
+		exp.backend.expression = initContent();
+		concatContent(exp.backend.expression,buff);
+		
+		$$ = exp;
     }
     ;
 
