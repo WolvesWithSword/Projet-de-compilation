@@ -3,15 +3,16 @@
 #include <string.h>
 
 
+
 /*Struct declaration implicite*/
 struct _TypeStruct;
 struct _Variable;
 struct _ParameterType;
 struct _FunctionType;
-struct _TmpVar;
 /*====================Type des variable==============*/
 
 typedef enum { VOID_T, INT_T } UnaryType;
+typedef enum { VOID_PTR_BE, INT_BE, VOID_BE } TypeBE;
 
 typedef struct _Type
 {
@@ -118,11 +119,28 @@ typedef struct _Transit
 	int isPtr;
 } Transit;
 
+typedef struct _TmpVar
+{
+	TypeBE type; 
+	char name[10];
+	int isAvailable;	
+	
+	struct _TmpVar* next;
+} TmpVar;
+
+typedef struct _Content
+{
+	char* data;
+	int size; 
+
+	struct _Content* next; 
+} Content; 
+
 typedef struct _BackendTransit{
 	int hasOp;
-	char expression[200];
+	Content* expression;
 	int isTmpVar;
-	struct _TmpVar* tmpVar;
+	TmpVar* tmpVar;
 } BackendTransit;
 
 
@@ -139,6 +157,39 @@ typedef struct _Expression
 
 
 
+typedef struct _Label
+{
+	int NumElse;
+	int NumIf;
+
+} Label;
+
+
+
+typedef struct _ToWrite
+{
+	Content* first;
+	Content* last;
+
+} ToWrite; 
+
+
+
+
+typedef struct _NodeBE
+{
+	TmpVar* tmpVarList;
+	ToWrite* declaration; 
+	ToWrite* toWrite;
+
+	struct _NodeBE* next;
+} NodeBE; 
+
+typedef struct _StackBE
+{
+	NodeBE* top;
+} StackBE;
+
 //============================ implicite declaration========================================
 void freeTypeStruct(TypeStruct* typeStruct);
 void structPrint(TypeStruct* typeStruct);
@@ -148,6 +199,7 @@ void parameterTypePrint(ParameterType* paramList);
 void functionTypePrint(FunctionType* funType);
 void freeFunctionType(FunctionType* funType);
 int compareFunctionType(FunctionType* typeFun1, FunctionType* typeFun2);
+void concatContent(Content* content, char* toAdd);
 //==============================Type Fonction===============================================
 
 Type* initType(){
@@ -727,6 +779,300 @@ int relativeAdress(TypeStruct* ts, char* name){
 	return relAdd;
 }
 
+
+//###################### Gestion des type ######################
+
+TypeBE typeToBackend(Type* type){
+	if(type->isPtr){
+		return VOID_PTR_BE;
+	}
+	if(type->isUnary){
+		switch(type->unaryType){
+			case VOID_T:
+				return VOID_BE;
+			case INT_T:
+				return INT_BE;
+			default : //normalement impossible
+				fprintf(stderr,"wrong type");
+				return VOID_PTR_BE;
+		}
+	}
+	return VOID_PTR_BE;
+}
+
+char* toStringTypeBE(TypeBE type){
+	switch(type){
+		case VOID_BE: return "void ";
+		case VOID_PTR_BE: return "void* ";
+		case INT_BE: return "int ";
+		default : //normalement impossible
+			fprintf(stderr,"wrong type");
+			return "void* ";
+	}
+}
+
+//###################### ToWrite ###############################
+
+ToWrite* initToWrite(){
+	ToWrite* var = malloc(sizeof(ToWrite));
+	memset(var,0,sizeof(ToWrite));
+	return var;
+}
+
+Content* initContent(){
+	Content* content = malloc(sizeof(Content));
+	memset(content,0,sizeof(Content));
+	content->data = calloc(10,sizeof(char));
+	content->size = 10;
+	return content;
+}
+
+void freeContent(Content* content){
+	if(content == NULL) return;
+	free(content->data);
+	free(content);
+}
+
+void addToWriteContent(ToWrite* toWrite,Content* content){
+	if(toWrite->last==NULL){
+		toWrite->first = content;
+	}
+	else{
+		toWrite->last->next = content;
+	}
+	//au cas ou on ajoute une liste de content
+	while(content->next!=NULL){
+		content = content->next;
+	}
+	toWrite->last = content;
+}
+
+void addToWriteToWrite(ToWrite* toWrite,ToWrite* toWrite2){
+	if(toWrite2->first==NULL) return;
+	if(toWrite->first==NULL){
+		toWrite->first = toWrite2->first;
+		toWrite->last = toWrite2->last;
+		return;
+	}
+	else{
+		toWrite->last->next = toWrite2->first;
+		toWrite->last = toWrite2->last;
+	}
+}
+
+//###################### TMP VAR ###############################
+TmpVar* initTmpVar(){
+	TmpVar* var = malloc(sizeof(TmpVar));
+	memset(var,0,sizeof(TmpVar));
+	return var;
+}
+
+TmpVar* getTmpVar(TmpVar* list, TypeBE type){
+	TmpVar* current = list;
+	while(current != NULL){
+		if(current->type == type && current->isAvailable == 1){
+			return current;
+		}	
+		current = current->next;
+	}
+	return NULL;
+}
+
+void addTmpVar(TmpVar** list,TmpVar* tmpVar){
+	if(*list==NULL){
+		*list = tmpVar;
+		return;
+	}
+	TmpVar* current = *list;
+	while(current->next!=NULL){
+		current = current->next;
+	}
+	current->next = tmpVar;	
+}
+
+int tmpLen(TmpVar* list){
+
+	if(list == NULL) return 0;
+
+	int i = 0;
+	TmpVar* current = list;
+	while(current != NULL){
+		i++;
+		current = current->next;
+	}
+	return i;
+}
+
+TmpVar* createTmpVar(int nb, TypeBE type){
+	TmpVar* newVar = initTmpVar();
+	strcat(newVar->name,"_t");
+	char buff[5];
+	sprintf(buff,"%d",nb);
+	strcat(newVar->name,buff);
+	newVar->type = type;
+	newVar->isAvailable = 1;
+
+	return newVar;
+}
+
+void makeAvailableTmpVar(TmpVar* list){
+	TmpVar* current = list;
+	while(current != NULL){
+		current->isAvailable = 1;
+		current = current->next;
+	}
+}
+
+void makeAvailableTmpVarByName(TmpVar* list,char* name){
+	TmpVar* current = list;
+	while(current != NULL){
+		if(strcmp(current->name,name)==0){
+			current->isAvailable = 1;
+			return;
+		}
+		current = current->next;
+	}
+}
+
+Content* tmpToContent(TmpVar* tmpVar){
+	char* typeString = toStringTypeBE(tmpVar->type);
+	Content* content = initContent();
+	concatContent(content,typeString);
+	concatContent(content,tmpVar->name);
+	concatContent(content,";\n");
+	return content;
+}
+
+//############################### STACK_BE ##############################
+
+StackBE* newStackBE(){
+	StackBE* stack = malloc(sizeof(StackBE));
+	memset(stack,0,sizeof(StackBE));
+	return stack;
+}
+
+NodeBE* initNodeBE(){
+	NodeBE* node = malloc(sizeof(NodeBE));
+	memset(node,0,sizeof(NodeBE));
+	node->declaration = initToWrite();
+	node->toWrite = initToWrite();
+	return node;
+}
+
+
+
+void addStageToStackBE(StackBE* stack){
+	NodeBE* newStage= initNodeBE();
+	newStage->next = stack->top;
+	stack->top = newStage;
+}
+
+void removeStageToStackBE(StackBE* stack){
+	NodeBE* deleteStage = stack->top;
+	stack->top = deleteStage->next;
+
+	addToWriteToWrite(stack->top->toWrite,deleteStage->declaration);
+	
+	TmpVar* current = deleteStage->tmpVarList;
+	while(current != NULL){
+		addToWriteContent(stack->top->toWrite,tmpToContent(current));
+		current = current->next;
+	}
+	addToWriteToWrite(stack->top->toWrite,deleteStage->toWrite);
+	//TODO faire les free
+	free(deleteStage);
+}
+
+TmpVar* getTmpVarStackBE(StackBE* stack,TypeBE type){
+	TmpVar* tmpVar = getTmpVar(stack->top->tmpVarList,type);
+	if(tmpVar==NULL){
+		int n = tmpLen(stack->top->tmpVarList);
+		tmpVar = createTmpVar(n,type);
+		addTmpVar(&stack->top->tmpVarList,tmpVar);
+	}
+	tmpVar->isAvailable = 0;
+	return tmpVar;
+}
+
+
+void addToWriteStackBE(StackBE* stack,Content* content){
+	addToWriteContent(stack->top->toWrite,content);
+}
+
+void addDeclarationStackBE(StackBE* stack,Content* content){
+	addToWriteContent(stack->top->declaration,content);
+	
+}
+
+//######################## char* ######################################"
+
+void printBackend(ToWrite* write){
+	Content* current = write->first;
+	while(current!=NULL){
+		fprintf(stdout,"%s",current->data);
+		current = current->next;
+	}
+}
+
+void dynamiqueAlloc(Content* content){
+	content->size *= 2;
+	content->data = realloc(content->data,content->size);
+}
+
+void concatContent(Content* content, char* toAdd){
+	while(strlen(content->data) + strlen(toAdd) >= content->size){
+		dynamiqueAlloc(content);
+	}
+	strcat(content->data,toAdd);
+}
+
+void concatBeforeContent(Content* content, char* toAdd){
+	while(strlen(content->data) + strlen(toAdd) >= content->size){
+		dynamiqueAlloc(content);
+	}
+	char buff[content->size];
+	sprintf(buff,"%s",content->data);
+	strcpy(content->data,toAdd);
+	strcat(content->data,buff);
+}
+
+void copyContent(Content* content, char* toCopy){
+	while(strlen(content->data) + strlen(toCopy) >= content->size){
+		dynamiqueAlloc(content);
+	}
+	strcpy(content->data,toCopy);
+}
+
+
+void affectToTmp(StackBE* stack, BackendTransit* bt, TypeBE type){
+	if(bt->hasOp == 1){
+		TmpVar* tmpVar = getTmpVarStackBE(stack,type);
+		Content* content = initContent();
+
+		concatContent(content,tmpVar->name);
+		concatContent(content," = ");
+		concatContent(content, bt->expression->data);
+		concatContent(content,";\n");
+
+		addToWriteStackBE(stack,content);
+		copyContent(bt->expression,tmpVar->name);
+		bt->isTmpVar = 1;
+		bt->tmpVar = tmpVar;
+		bt->hasOp = 0;
+	}
+}
+
+void operationTraitement(StackBE* stack, BackendTransit* left, TypeBE leftType, BackendTransit* right, TypeBE rightType, char* op){
+	affectToTmp(stack,right,rightType);
+	affectToTmp(stack,left,leftType);
+
+	concatContent(left->expression, op);
+	concatContent(left->expression, right->expression->data);
+
+	freeContent(right->expression);	
+	left->hasOp = 1;
+	//TODO : opti du isTmpVar...
+}
 
 int test(){
 	Stack* stack = newStack();

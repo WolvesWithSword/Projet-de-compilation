@@ -6,9 +6,9 @@ struct _TypeStruct;
 struct _Variable;
 struct _ParameterType;
 struct _FunctionType;
-struct _TmpVar;
 
 typedef enum { VOID_T, INT_T } UnaryType;
+typedef enum { VOID_PTR_BE, INT_BE } TypeBE;
 
 typedef struct _Type
 {
@@ -90,13 +90,57 @@ typedef struct _Transit
 	int isPtr;
 } Transit;
 
+typedef struct _Label
+{
+	int NumElse;
+	int NumIf;
+
+} Label;
+
+typedef struct _Content
+{
+	char* data;
+
+	struct _Content* next; 
+} Content; 
+
+typedef struct _ToWrite
+{
+	Content* first;
+	Content* last;
+
+} ToWrite; 
+
+typedef struct _TmpVar
+{
+	TypeBE type; 
+	char name[10];
+	int isAvailable;	
+	
+	struct _TmpVar* next;
+} TmpVar;
+
+
+typedef struct _NodeBE
+{
+	TmpVar* tmpVarList;
+	ToWrite* declaration; 
+	ToWrite* toWrite;
+
+	struct _NodeBE* next;
+} NodeBE; 
+
+typedef struct _StackBE
+{
+	NodeBE* top;
+} StackBE;
+
 typedef struct _BackendTransit{
 	int hasOp;
-	char expression[200];
+	Content* expression;
 	int isTmpVar;
-	struct _TmpVar* tmpVar;
+	TmpVar* tmpVar;
 } BackendTransit;
-
 
 typedef struct _Expression
 {
@@ -108,6 +152,7 @@ typedef struct _Expression
 	BackendTransit backend;
 	
 } ExpressionTransit;
+
 
 //==============================Type Fonction===========================================
 
@@ -190,5 +235,47 @@ Fonction* getCurrentFonction(Stack* stack);
 
 int mySizeOf(Type* type);
 int relativeAdress(TypeStruct* ts, char* name);
+
+//################################ back end #######################
+StackBE* stackBE;
+
+//###################### Gestion des type ######################
+
+TypeBE typeToBackend(Type* type);
+char* toStringTypeBE(TypeBE type);
+
+//###################### ToWrite ###############################
+
+ToWrite* initToWrite();
+Content* initContent();
+
+//###################### TMP VAR ###############################
+TmpVar* initTmpVar();
+TmpVar* getTmpVar(TmpVar** list, TypeBE type);
+void addTmpVar(TmpVar** list,TmpVar* tmpVar);
+int tmpLen(TmpVar* list);
+TmpVar* createTmpVar(int nb, TypeBE type);
+void makeAvailableTmpVar(TmpVar* list);
+void makeAvailableTmpVarByName(TmpVar* list,char* name);
+Content* tmpToContent(TmpVar* tmpVar);
+
+//############################### STACK_BE ##############################
+
+StackBE* newStackBE();
+NodeBE* initNodeBE();
+void addStageToStackBE(StackBE* stack);
+void removeStageToStackBE(StackBE* stack);
+TmpVar* getTmpVarStackBE(StackBE* stack,TypeBE type);
+void addToWriteStackBE(StackBE* stack,Content* content);
+void addDeclarationStackBE(StackBE* stack,Content* content);
+
+void* printBackend(ToWrite* write);
+
+void dynamiqueAlloc(Content* content);
+void concatContent(Content* content, char* toAdd);
+void concatBeforeContent(Content* content, char* toAdd);
+void copyContent(Content* content, char* toCopy);
+void affectToTmp(StackBE* stack, BackendTransit* bt, TypeBE type);
+void operationTraitement(StackBE* stack, BackendTransit* left, TypeBE leftType, BackendTransit* right, TypeBE rightType, char* op);
 
 #endif
