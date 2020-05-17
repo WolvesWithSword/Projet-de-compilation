@@ -100,6 +100,9 @@ typedef struct _Label
 typedef struct _Content
 {
 	char* data;
+	int size; 
+
+	short tabulation;
 
 	struct _Content* next; 
 } Content; 
@@ -126,7 +129,7 @@ typedef struct _NodeBE
 	TmpVar* tmpVarList;
 	ToWrite* declaration; 
 	ToWrite* toWrite;
-
+	short stageNb;
 	struct _NodeBE* next;
 } NodeBE; 
 
@@ -269,7 +272,7 @@ TmpVar* getTmpVarStackBE(StackBE* stack,TypeBE type);
 void addToWriteStackBE(StackBE* stack,Content* content);
 void addDeclarationStackBE(StackBE* stack,Content* content);
 
-void* printBackend(ToWrite* write);
+void* printBackend(StackBE* write);
 
 void dynamiqueAlloc(Content* content);
 void concatContent(Content* content, char* toAdd);
@@ -277,5 +280,7 @@ void concatBeforeContent(Content* content, char* toAdd);
 void copyContent(Content* content, char* toCopy);
 void affectToTmp(StackBE* stack, BackendTransit* bt, TypeBE type);
 void operationTraitement(StackBE* stack, BackendTransit* left, TypeBE leftType, BackendTransit* right, TypeBE rightType, char* op);
+Content* variableDeclarationToBE(Variable* variable);
+Content* fonctionDeclarationToBE(Fonction* fonction);
 
 #endif

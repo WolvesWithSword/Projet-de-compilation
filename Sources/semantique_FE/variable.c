@@ -133,6 +133,8 @@ typedef struct _Content
 	char* data;
 	int size; 
 
+	short tabulation;
+
 	struct _Content* next; 
 } Content; 
 
@@ -181,7 +183,7 @@ typedef struct _NodeBE
 	TmpVar* tmpVarList;
 	ToWrite* declaration; 
 	ToWrite* toWrite;
-
+	short stageNb;
 	struct _NodeBE* next;
 } NodeBE; 
 
@@ -965,6 +967,9 @@ void addStageToStackBE(StackBE* stack){
 	NodeBE* newStage= initNodeBE();
 	newStage->next = stack->top;
 	stack->top = newStage;
+	if(newStage->next==NULL){
+		newStage->stageNb = 0;
+	}else newStage->stageNb = newStage->next->stageNb+1;
 }
 
 void removeStageToStackBE(StackBE* stack){
@@ -974,8 +979,11 @@ void removeStageToStackBE(StackBE* stack){
 	addToWriteToWrite(stack->top->toWrite,deleteStage->declaration);
 	
 	TmpVar* current = deleteStage->tmpVarList;
+	Content* currentContent;
 	while(current != NULL){
-		addToWriteContent(stack->top->toWrite,tmpToContent(current));
+		currentContent = tmpToContent(current);
+		currentContent->tabulation = deleteStage->stageNb;
+		addToWriteContent(stack->top->toWrite,currentContent);
 		current = current->next;
 	}
 	addToWriteToWrite(stack->top->toWrite,deleteStage->toWrite);
@@ -996,19 +1004,41 @@ TmpVar* getTmpVarStackBE(StackBE* stack,TypeBE type){
 
 
 void addToWriteStackBE(StackBE* stack,Content* content){
+	content->tabulation = stack->top->stageNb;
 	addToWriteContent(stack->top->toWrite,content);
 }
 
 void addDeclarationStackBE(StackBE* stack,Content* content){
+	content->tabulation = stack->top->stageNb;
 	addToWriteContent(stack->top->declaration,content);
 	
 }
 
 //######################## char* ######################################"
 
-void printBackend(ToWrite* write){
-	Content* current = write->first;
+/*A utilise uniquement quand il reste 1 etage
+et que l'on veut marquer tout dans le fichier*/
+void printBackend(StackBE* stack){
+
+	
+	Content* current = stack->top->declaration->first;
 	while(current!=NULL){
+		for(int i = 0;i<current->tabulation; i++) fprintf(stdout,"\t");
+		fprintf(stdout,"%s",current->data);
+		current = current->next;
+	}
+
+	TmpVar* currentVar = stack->top->tmpVarList;
+	while(current != NULL){
+		current = tmpToContent(currentVar);
+		for(int i = 0;i<current->tabulation; i++) fprintf(stdout,"\t");
+		fprintf(stdout,"%s",current->data);
+		currentVar = currentVar->next;
+	}
+
+	current = stack->top->toWrite->first;
+	while(current!=NULL){
+		for(int i = 0;i<current->tabulation; i++) fprintf(stdout,"\t");
 		fprintf(stdout,"%s",current->data);
 		current = current->next;
 	}
@@ -1072,6 +1102,34 @@ void operationTraitement(StackBE* stack, BackendTransit* left, TypeBE leftType, 
 	freeContent(right->expression);	
 	left->hasOp = 1;
 	//TODO : opti du isTmpVar...
+}
+
+
+Content* variableDeclarationToBE(Variable* variable){
+	char* type = toStringTypeBE(typeToBackend(variable->type));
+	Content* content = initContent();
+	concatContent(content,type);
+	concatContent(content,variable->name);
+	return content;
+}
+
+Content* fonctionDeclarationToBE(Fonction* fonction){
+	char* type = toStringTypeBE(typeToBackend(fonction->type));
+	Content* content = initContent();
+	concatContent(content,type);
+	concatContent(content,fonction->name);
+	concatContent(content,"(");
+	Variable* current = fonction->variables;
+	Content* var;
+	while(current!=NULL){
+		var = variableDeclarationToBE(current);
+		concatContent(content,var->data);
+		free(var);
+		current = current->next;
+		if(current!=NULL) concatContent(content," , ");
+	}
+	concatContent(content,")");
+	return content;
 }
 
 int test(){

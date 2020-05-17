@@ -400,6 +400,10 @@ declaration
             var->name = $2.name;
             var->type = $1;
             addVariableToStack(stack,var);
+			
+			Content* varString = variableDeclarationToBE(var);
+			concatContent(varString,";\n");
+			addDeclarationStackBE(stackBE,varString);
         }
         else if($2.variableD == NULL && $2.fonctionD != NULL && $2.name != NULL) {
 
@@ -413,6 +417,10 @@ declaration
             $2.fonctionD->type->functionType->parameters = variableToParameterType($2.fonctionD->variables);
                
             addFonctionToStack(stack,$2.fonctionD);
+
+		Content* fct = fonctionDeclarationToBE($2.fonctionD);
+		concatContent(fct,";\n\n");
+		addToWriteStackBE(stackBE,fct);
         }
         else{fprintf(stderr,"\ndeclaration error\n"); yyerror("SEMANTIC ERROR");}
     }
@@ -420,7 +428,7 @@ declaration
     ;
 
 declaration_specifiers
-    : EXTERN type_specifier {$$ = $2;}
+    : EXTERN type_specifier {$$ = $2;/*TODO gerer les externe*/}
     | type_specifier {$$ = $1;}
     ;
 
@@ -519,10 +527,20 @@ statement
     ;
 
 new_stage
-    : {printf("\nadd stage\n");addStageToStack(stack);addStageToStackBE(stackBE);};
+    : {printf("\nadd stage\n");addStageToStack(stack);
+
+		Content* content = initContent();
+		concatContent(content,"{\n");
+		addToWriteStackBE(stackBE,content);
+		addStageToStackBE(stackBE);};
 
 remove_stage
-    : {printf("\nremove stage\n");printStack(stack);removeStageToStack(stack);removeStageToStackBE(stackBE);};
+    : {printf("\nremove stage\n");printStack(stack);removeStageToStack(stack);
+		removeStageToStackBE(stackBE);
+		Content* content = initContent();
+		concatContent(content,"}\n");
+
+		addToWriteStackBE(stackBE,content);};
 
 compound_statement
     : '{' '}'
@@ -681,6 +699,8 @@ function_definition
         addFonctionToStack(stack,$2.fonctionD);
         stack->top->currentFunction = $2.fonctionD;
 
+		Content* fct = fonctionDeclarationToBE($2.fonctionD);
+		addToWriteStackBE(stackBE,fct);
 
 
     } 
@@ -708,7 +728,7 @@ int main(int argc, char *argv[])
         addStageToStack(stack);
         yyparse();
        	printf("Parse done\n");
-		printBackend(stackBE->top->toWrite);
+		printBackend(stackBE);
     }
     return 0;
 }
