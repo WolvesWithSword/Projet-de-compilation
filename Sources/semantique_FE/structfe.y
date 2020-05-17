@@ -16,7 +16,7 @@
     Type* type;
     Variable* var;
     TypeStruct* typeStruct;
-    ParameterType* parameterType;
+    TransitParameter parameterType;
 	ExpressionTransit expr;
 }
 
@@ -109,13 +109,18 @@ postfix_expression
     }
    	| postfix_expression '(' argument_expression_list ')' { /*TODO clear la argument_expression_list (après verif)*/
         if($1.type.isFunction){
-            if(compareParameterType($1.type.functionType->parameters,$3)) {
+			if(compareParameterType($1.type.functionType->parameters,$3.parameters)) {
+				
 				ExpressionTransit exp; exp.nameId = NULL; exp.isId = 0; typeCopy(&exp.type,$1.type.functionType->returnType); exp.isAffectable = 0;
 
-				/*TODO mettre les argument*/
+				
 				affectToTmp(stackBE, &$1.backend, typeToBackend(&$1.type));
 				exp.backend = $1.backend;
-				concatContent(exp.backend.expression,"()");
+				concatContent(exp.backend.expression,"(");
+				concatContent(exp.backend.expression,$3.content->data);
+				concatContent(exp.backend.expression,")");
+				freeContent($3.content);
+	
 				exp.backend.hasOp=1;
 
 				$$ = exp;
@@ -142,7 +147,6 @@ postfix_expression
 					int adrPtr = relativeAdress($1.type.typeStruct,$3);
 					if(adrPtr!=0){ /*tmpvar = tmpvar + ptrVariable*/
 						char buff[20]; sprintf(buff,"%d",adrPtr);
-						
 						concatContent(exp.backend.expression," + ");
 						concatContent(exp.backend.expression,buff);
 						exp.backend.hasOp = 1;
@@ -163,11 +167,23 @@ postfix_expression
 
 argument_expression_list
     : expression {
-       	Type* type = initType();typeCopy(type,&$1.type); ParameterType* pt = initParameterType();
-        pt->type =type; ;$$=pt; /*TODO faire le free*/
+       	Type* type = initType();typeCopy(type,&$1.type); 
+		ParameterType* pt = initParameterType(); pt->type =type;
+		affectToTmp(stackBE,&$1.backend,typeToBackend(&$1.type));
+		TransitParameter transit;
+		transit.parameters = pt;
+		transit.content=$1.backend.expression;
+		$$=transit; /*TODO faire le free*/
     }
    	| argument_expression_list ',' expression {
-		addParameterType(&$1,&$3.type);/*Liste des argument d'un appelle de fonction*/
+		Type* type = initType();typeCopy(type,&$3.type);
+		addParameterType(&$1.parameters,type);/*Liste des argument d'un appelle de fonction*/
+
+		affectToTmp(stackBE,&$3.backend,typeToBackend(&$3.type));
+		concatContent($1.content," , ");
+		concatContent($1.content,$3.backend.expression->data);
+		freeContent($3.backend.expression);
+		$$ = $1;
 	}
     ;
 
@@ -190,6 +206,7 @@ unary_expression
         else {fprintf(stderr,"\n bad use of unaryOperator\n"); yyerror("SEMANTIC ERROR");}
 	}
     | SIZEOF unary_expression {
+		/*rajouter parenthese??????????*/
     	Type type = {0}; type.isUnary = 1; type.unaryType = INT_T;
     	ExpressionTransit exp; exp.nameId = NULL; exp.isId = 0;exp.isAffectable = 0; exp.type = type; $$ = exp; /*TODO peut etre un type*/
     }

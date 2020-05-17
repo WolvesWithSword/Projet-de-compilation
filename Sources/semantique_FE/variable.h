@@ -156,6 +156,11 @@ typedef struct _Expression
 	
 } ExpressionTransit;
 
+typedef struct _TransitParameter{
+	ParameterType* parameters;
+	Content* content;
+} TransitParameter;
+
 
 //==============================Type Fonction===========================================
 
@@ -246,7 +251,7 @@ StackBE* stackBE;
 
 TypeBE typeToBackend(Type* type);
 char* toStringTypeBE(TypeBE type);
-
+void freeContent(Content* content);
 //###################### ToWrite ###############################
 
 ToWrite* initToWrite();

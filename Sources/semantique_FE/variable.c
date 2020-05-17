@@ -192,6 +192,10 @@ typedef struct _StackBE
 	NodeBE* top;
 } StackBE;
 
+typedef struct _TransitParameter{
+	ParameterType* parameters;
+	Content* content;
+} TransitParameter;
 //============================ implicite declaration========================================
 void freeTypeStruct(TypeStruct* typeStruct);
 void structPrint(TypeStruct* typeStruct);
@@ -471,7 +475,7 @@ void structListPrint(TypeStruct* list){
 //==============================parameterType list===========================================
 ParameterType* initParameterType(){
 	ParameterType* parameterType = malloc(sizeof(ParameterType));
-	memset(parameterType,0,sizeof(parameterType));
+	memset(parameterType,0,sizeof(ParameterType));
 	return parameterType;
 }
 
@@ -502,15 +506,18 @@ void addParameterType(ParameterType** list,Type* type){
 }
 
 int compareParameterType(ParameterType* type1, ParameterType* type2){
-	while(type1!=NULL || type2!=NULL){
-		if(compareType(type1->type,type2->type)){
+	int res = 1;
+	while(type1!=NULL && type2!=NULL){
+		int cmp = compareTypeForOp(type1->type,type2->type);
+		if(cmp==1){
 			type1 = type1->next;
 			type2 = type2->next;
 		}
+		else if(cmp==2) res = 2;
 		else return 0;
 	}
 	if(type1!=NULL && type2==NULL || type1==NULL && type2!=NULL) return 0;
-	return 1;
+	return res;
 	
 }
 
@@ -1109,6 +1116,7 @@ Content* variableDeclarationToBE(Variable* variable){
 	char* type = toStringTypeBE(typeToBackend(variable->type));
 	Content* content = initContent();
 	concatContent(content,type);
+	concatContent(content,"usr_");
 	concatContent(content,variable->name);
 	return content;
 }
@@ -1117,6 +1125,7 @@ Content* fonctionDeclarationToBE(Fonction* fonction){
 	char* type = toStringTypeBE(typeToBackend(fonction->type));
 	Content* content = initContent();
 	concatContent(content,type);
+	concatContent(content,"usr_");
 	concatContent(content,fonction->name);
 	concatContent(content,"(");
 	Variable* current = fonction->variables;
