@@ -196,8 +196,15 @@ typedef struct _StackBE
 {
 	NodeBE* top;
 	Label label;
+
 	int hasOr;
 	int hasAnd;
+	int hasEq;
+	int hasNoEq;
+	int hasSup;
+	int hasSupEq;
+	int hasInf;
+	int hasInfEq;
 } StackBE;
 
 typedef struct _TransitParameter{
@@ -342,6 +349,7 @@ ToWrite createIfBackend(StackBE* stack, BackendTransit* cnd,TypeBE cndType, ToWr
 ToWrite createIfElseBackend(StackBE* stack, BackendTransit* cnd,TypeBE cndType, ToWrite* ifCorps,ToWrite* elseCorps, char* ifLabel, char* elseLabel,char* continueLabel);
 ToWrite createWhileBackend(StackBE* stack, BackendTransit* cnd,TypeBE cndType, ToWrite* corps, char* whileLabel,char* bodyLabel, char* continueLabel);
 ToWrite createForBackend(StackBE* stack,ToWrite* init, BackendTransit* cnd,TypeBE cndType, ToWrite* incrmt, ToWrite* corps, char* forLabel, char* testLabel);
+void callBackendFonction(StackBE* stack, BackendTransit* left, TypeBE leftType, BackendTransit* right, TypeBE rightType,char* nameFonction, int* op);
 char* generateIfLabel(StackBE* stack);
 char* generateElseLabel(StackBE* stack);
 char* generateWhileLabel(StackBE* stack);
@@ -352,5 +360,6 @@ char* generateForLabel(StackBE* stack);
 
 Content* andFun();
 Content* orFun();
+Content* comparaisonFonction(char* name,char* cnd);
 
 #endif

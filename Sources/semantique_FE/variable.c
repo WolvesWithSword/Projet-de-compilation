@@ -201,6 +201,12 @@ typedef struct _StackBE
 	Label label;
 	int hasOr;
 	int hasAnd;
+	int hasEq;
+	int hasNoEq;
+	int hasSup;
+	int hasSupEq;
+	int hasInf;
+	int hasInfEq;
 } StackBE;
 
 typedef struct _TransitParameter{
@@ -275,7 +281,6 @@ void typePrint(Type* type){
 compare 2 type 
 */
 int compareType(Type* type1, Type* type2){
-
 	if(type1->isFunction){
 		return compareFunctionType(type1->functionType, type2->functionType);
 	}
@@ -305,8 +310,6 @@ int == type* ->2
 type* == int ->2
 */
 int compareTypeForOp(Type* type1, Type* type2){
-
-
 	if((type1->isPtr == 0) && (type2->isPtr == 0)){
 		if((type1->isUnary == 1 && type1->unaryType == VOID_T) || (type2->isUnary == 1 && type2->unaryType == VOID_T)) return 0;//Aucune op possible avec void. 
 		return compareType(type1, type2);	
@@ -526,7 +529,11 @@ int compareParameterType(ParameterType* type1, ParameterType* type2){
 			type1 = type1->next;
 			type2 = type2->next;
 		}
-		else if(cmp==2) res = 2;
+		else if(cmp==2){
+			type1 = type1->next;
+			type2 = type2->next;
+			res = 2;
+		}
 		else return 0;
 	}
 	if(type1!=NULL && type2==NULL || type1==NULL && type2!=NULL) return 0;
@@ -1042,11 +1049,20 @@ void addDeclarationStackBE(StackBE* stack,Content* content){
 }
 
 //######################## char* ######################################"
-
+Content* comparaisonFonction(char* name,char* cnd);
+Content* andFun();
+Content* orFun();
 /*A utilise uniquement quand il reste 1 etage
 et que l'on veut marquer tout dans le fichier*/
 void printBackend(StackBE* stack){
-
+	if(stack->hasOr) fprintf(stdout,"%s",orFun()->data);
+	if(stack->hasAnd) fprintf(stdout,"%s",andFun()->data);
+	if(stack->hasEq) fprintf(stdout,"%s",comparaisonFonction("eq","==")->data);
+	if(stack->hasNoEq) fprintf(stdout,"%s",comparaisonFonction("noEq","!=")->data);
+	if(stack->hasSup) fprintf(stdout,"%s",comparaisonFonction("sup",">")->data);
+	if(stack->hasSupEq) fprintf(stdout,"%s",comparaisonFonction("supEq",">=")->data);
+	if(stack->hasInf) fprintf(stdout,"%s",comparaisonFonction("inf","<")->data);
+	if(stack->hasInfEq) fprintf(stdout,"%s",comparaisonFonction("infEq","<=")->data);
 	
 	Content* current = stack->top->declaration->first;
 	while(current!=NULL){
@@ -1154,6 +1170,7 @@ Content* fonctionDeclarationToBE(Fonction* fonction){
 	concatContent(content,"(");
 	Variable* current = fonction->variables;
 	Content* var;
+
 	while(current!=NULL){
 		var = variableDeclarationToBE(current);
 		concatContent(content,var->data);
@@ -1303,6 +1320,30 @@ ToWrite createForBackend(StackBE* stack,ToWrite* init, BackendTransit* cnd,TypeB
 	return writter;	
 }
 
+void callBackendFonction(StackBE* stack, BackendTransit* left, TypeBE leftType, BackendTransit* right, TypeBE rightType,char* nameFonction, int* op){
+	affectToTmp(stack,right,rightType);
+	affectToTmp(stack,left,leftType);
+	
+	addToWriteToWrite(&right->toWrite,&left->toWrite);
+	left->toWrite = right->toWrite;
+
+	Content* content = initContent();
+	concatContent(content,nameFonction);
+	concatContent(content,"(");
+	concatContent(content, left->expression->data);
+	concatContent(content,",");
+	concatContent(content,right->expression->data);
+	concatContent(content,")");
+	
+	freeContent(left->expression);
+	freeContent(right->expression);	
+
+	left->expression = content;
+	left->hasOp = 1;
+	*op = 1;
+}
+
+
 char* generateTestLabel(StackBE* stack){
 	Label label = stack->label;
 	
@@ -1404,7 +1445,7 @@ Content* andFun(){
 	concatContent(andContent,"int and(int x, int y){\n");
 	concatContent(andContent,"\tif(x==0) goto invalide;\n");
 	concatContent(andContent,"\tif(y==0) goto invalide;\n");
-	concatContent(andContent,"\treturn 1;\n\tinvalide:\n\treturn 0;\n}");
+	concatContent(andContent,"\treturn 1;\n\tinvalide:\n\treturn 0;\n}\n\n");
 	
 	return andContent;
 }
@@ -1414,9 +1455,23 @@ Content* orFun(){
 	concatContent(orContent,"int or(int x, int y){\n");
 	concatContent(orContent,"\tif(x) goto valide;\n");
 	concatContent(orContent,"\tif(y) goto valide;\n");
-	concatContent(orContent,"\treturn 0;\n\tvalide:\n\treturn 1;\n}");
+	concatContent(orContent,"\treturn 0;\n\tvalide:\n\treturn 1;\n}\n\n");
 	
 	return orContent;
+}
+
+Content* comparaisonFonction(char* name,char* cnd){
+	Content* content = initContent();
+	concatContent(content,"int ");
+	concatContent(content,name);
+	concatContent(content,"(int x, int y){\n\tif(x");
+	concatContent(content,cnd);
+	concatContent(content,"y) goto label_");
+	concatContent(content,name);
+	concatContent(content,";\n\t return 0;\n\tlabel_");
+	concatContent(content,name);
+	concatContent(content,":\n\t return 1;\n}\n\n");
+	return content;
 }
 
 int test(){

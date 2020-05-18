@@ -363,86 +363,89 @@ additive_expression
 relational_expression
     : additive_expression {$$ = $1;}
     | relational_expression '<' additive_expression{
-		if(($1.type.isUnary == 1 && $1.type.unaryType == INT_T) && ($3.type.isUnary == 1 && $3.type.unaryType == INT_T)) {
-			$1.isId = 0; $1.isAffectable = 0; 
-
-			operationTraitement(stackBE,&$1.backend,typeToBackend(&$1.type),&$3.backend,typeToBackend(&$3.type)," < ");
-
-			$$ = $1;
-		}
-		else {fprintf(stderr,"\n< : logical expression between wrong types\n"); yyerror("SEMANTIC ERROR");} 
+		int cmp = compareTypeForOp(&$1.type,&$3.type);
+		if(cmp==0) {fprintf(stderr,"\n< : logical expression between wrong types\n"); yyerror("SEMANTIC ERROR");} 
+	
+		$1.isId = 0; $1.isAffectable = 0; 
+			
+		callBackendFonction(stackBE,&$1.backend, typeToBackend(&$1.type), &$3.backend, typeToBackend(&$3.type),"Inf",&stackBE->hasInf);
+			
+		$$ = $1;
 	}
     | relational_expression '>' additive_expression{
-		if(($1.type.isUnary == 1 && $1.type.unaryType == INT_T) && ($3.type.isUnary == 1 && $3.type.unaryType == INT_T)) {
-			$1.isId = 0; $1.isAffectable = 0; 
+		int cmp = compareTypeForOp(&$1.type,&$3.type);
+		if(cmp==0) {fprintf(stderr,"\n> :logical expression between wrong types\n"); yyerror("SEMANTIC ERROR");} 
 
-			operationTraitement(stackBE,&$1.backend,typeToBackend(&$1.type),&$3.backend,typeToBackend(&$3.type)," > ");			
+		$1.isId = 0; $1.isAffectable = 0; 
 
-			$$ = $1;
-		}
-		else {fprintf(stderr,"\n> :logical expression between wrong types\n"); yyerror("SEMANTIC ERROR");} 
+		callBackendFonction(stackBE,&$1.backend, typeToBackend(&$1.type), &$3.backend, typeToBackend(&$3.type),"Sup",&stackBE->hasSup);		
+
+		$$ = $1;
 	}
     | relational_expression LE_OP additive_expression{
-		if(($1.type.isUnary == 1 && $1.type.unaryType == INT_T) && ($3.type.isUnary == 1 && $3.type.unaryType == INT_T)) {
-			$1.isId = 0; $1.isAffectable = 0; 
+		int cmp = compareTypeForOp(&$1.type,&$3.type);
+		if(cmp==0) {fprintf(stderr,"\n<= : logical expression between wrong types\n"); yyerror("SEMANTIC ERROR");} 
+		$1.isId = 0; $1.isAffectable = 0; 
 
-			operationTraitement(stackBE,&$1.backend,typeToBackend(&$1.type),&$3.backend,typeToBackend(&$3.type)," <= ");
+		callBackendFonction(stackBE,&$1.backend, typeToBackend(&$1.type), &$3.backend, typeToBackend(&$3.type),"InfEq",&stackBE->hasInfEq);
 
-			$$ = $1;
-		}
-		else {fprintf(stderr,"\n<= : logical expression between wrong types\n"); yyerror("SEMANTIC ERROR");} 
+		$$ = $1;
 	}
     | relational_expression GE_OP additive_expression{
-		if(($1.type.isUnary == 1 && $1.type.unaryType == INT_T) && ($3.type.isUnary == 1 && $3.type.unaryType == INT_T)) {
-			$1.isId = 0; $1.isAffectable = 0; 
+		int cmp = compareTypeForOp(&$1.type,&$3.type);
 
-			operationTraitement(stackBE,&$1.backend,typeToBackend(&$1.type),&$3.backend,typeToBackend(&$3.type)," >= ");
+		if(cmp==0) {fprintf(stderr,"\n>= : logical expression between wrong types\n"); yyerror("SEMANTIC ERROR");} 
+	$1.isId = 0; $1.isAffectable = 0; 
 
-			$$ = $1;
-		}
-		else {fprintf(stderr,"\n>= : logical expression between wrong types\n"); yyerror("SEMANTIC ERROR");} 
+		callBackendFonction(stackBE,&$1.backend, typeToBackend(&$1.type), &$3.backend, typeToBackend(&$3.type),"SupEq",&stackBE->hasSupEq);
+
+		$$ = $1;
 	}
     ;
 
 equality_expression
     : relational_expression {$$ = $1;}
     | equality_expression EQ_OP relational_expression{
-		if(($1.type.isUnary == 1 && $1.type.unaryType == INT_T) && ($3.type.isUnary == 1 && $3.type.unaryType == INT_T)) {
-            $1.isId = 0; $1.isAffectable = 0; 
+		int cmp = compareTypeForOp(&$1.type,&$3.type);
+		if(cmp==0) {fprintf(stderr,"\n== : logical expression between wrong types\n"); yyerror("SEMANTIC ERROR");} 
+		$1.isId = 0; $1.isAffectable = 0; 
 
-			operationTraitement(stackBE,&$1.backend,typeToBackend(&$1.type),&$3.backend,typeToBackend(&$3.type)," == ");
+		callBackendFonction(stackBE,&$1.backend, typeToBackend(&$1.type), &$3.backend, typeToBackend(&$3.type),"Eq",&stackBE->hasEq);
 
-			$$ = $1;
-		}
-		else {fprintf(stderr,"\n== : logical expression between wrong types\n"); yyerror("SEMANTIC ERROR");} 
+		$$ = $1;
 	}
     | equality_expression NE_OP relational_expression{
-		if(($1.type.isUnary == 1 && $1.type.unaryType == INT_T) && ($3.type.isUnary == 1 && $3.type.unaryType == INT_T)) {
-            $1.isId = 0; $1.isAffectable = 0; 
+		int cmp = compareTypeForOp(&$1.type,&$3.type);
+		if(cmp==0) {fprintf(stderr,"\n!= : logical expression between wrong types\n"); yyerror("SEMANTIC ERROR");} 
+		$1.isId = 0; $1.isAffectable = 0; 
 
-			operationTraitement(stackBE,&$1.backend,typeToBackend(&$1.type),&$3.backend,typeToBackend(&$3.type)," != ");
+		callBackendFonction(stackBE,&$1.backend, typeToBackend(&$1.type), &$3.backend, typeToBackend(&$3.type),"NoEq",&stackBE->hasNoEq);
 
-			$$ = $1;
-		}
-		else {fprintf(stderr,"\n!= : logical expression between wrong types\n"); yyerror("SEMANTIC ERROR");} 
+		$$ = $1;
 	}
     ;
 
 logical_and_expression
     : equality_expression {$$ = $1;}
     | logical_and_expression AND_OP equality_expression{
-		if(($1.type.isUnary == 1 && $1.type.unaryType == INT_T) && ($3.type.isUnary == 1 && $3.type.unaryType == INT_T)) {
-            $1.isId = 0; $1.isAffectable = 0; $$ = $1;}
-		else {fprintf(stderr,"\n&& : logical expression between wrong types\n"); yyerror("SEMANTIC ERROR");} 
+
+		int cmp = compareTypeForOp(&$1.type,&$3.type);
+		if(cmp==0) {fprintf(stderr,"\n&& : logical expression between wrong types\n"); yyerror("SEMANTIC ERROR");} 
+
+		$1.isId = 0; $1.isAffectable = 0; 
+		callBackendFonction(stackBE,&$1.backend, typeToBackend(&$1.type), &$3.backend, typeToBackend(&$3.type),"and",&stackBE->hasAnd);
+		$$ = $1;
 	}
     ;
 
 logical_or_expression
     : logical_and_expression {$$ = $1;}
     | logical_or_expression OR_OP logical_and_expression{
-	   if(($1.type.isUnary == 1 && $1.type.unaryType == INT_T) && ($3.type.isUnary == 1 && $3.type.unaryType == INT_T)) {
-            $1.isId = 0; $1.isAffectable = 0; $$ = $1;}
-		else {fprintf(stderr,"\n|| : logical expression between wrong types\n"); yyerror("SEMANTIC ERROR");} 
+	    int cmp = compareTypeForOp(&$1.type , &$3.type);
+		if(cmp==0) {fprintf(stderr,"\n|| : logical expression between wrong types\n"); yyerror("SEMANTIC ERROR");} 
+		$1.isId = 0; $1.isAffectable = 0;
+		callBackendFonction(stackBE,&$1.backend, typeToBackend(&$1.type), &$3.backend, typeToBackend(&$3.type),"or",&stackBE->hasOr);
+		$$ = $1;
 	}
     ;
 
@@ -485,6 +488,7 @@ declaration
             if(isExistingInStageName(stack,$2.name)) {fprintf(stderr,"\nPrevious declaration of %s was here\n",$2.name); yyerror("SEMANTIC ERROR");}     
       
             $1->isPtr = $2.isPtr;
+			if($1->isFunction == 0 && $1->isUnary==0 && $1->isPtr==0){fprintf(stderr,"\nstruct \"%s\" isnt a pointer\n",$2.name); yyerror("SEMANTIC ERROR");}
             Variable* var = initVariable();
             var->name = $2.name;
             var->type = $1;
@@ -626,7 +630,7 @@ new_stage
 		addStageToStackBE(stackBE);};
 
 remove_stage
-    : {/*printf("\nremove stage\n");printStack(stack);*/removeStageToStack(stack);
+    : {printf("\nremove stage\n");printStack(stack);removeStageToStack(stack);
 		ToWrite toWrite = removeStageToStackBE(stackBE);
 		$$ = toWrite;
 	};
@@ -725,28 +729,19 @@ iteration_statement
 		$$=toWrite;
 		
 	}
-    | FOR '(' new_stage expression_statement expression ';' expression ')' statement remove_stage{
-		if($5.type.isPtr==1){printf("\nWarning: use pointer instead of int\n");}
-		if(!($5.type.isPtr==1 || ($5.type.isPtr==0 && $5.type.isUnary==1 && $5.type.unaryType == INT_T))){
+    | FOR '(' expression_statement expression ';' expression ')' statement{
+		if($4.type.isPtr==1){printf("\nWarning: use pointer instead of int\n");}
+		if(!($4.type.isPtr==1 || ($4.type.isPtr==0 && $4.type.isUnary==1 && $4.type.unaryType == INT_T))){
 			fprintf(stderr,"\nif need a int value\n"); yyerror("SEMANTIC ERROR"); 
 		}
 
-		concatContent($7.backend.expression,";\n");
-		addToWriteContent(&$7.backend.toWrite,$7.backend.expression);
+		concatContent($6.backend.expression,";\n");
+		addToWriteContent(&$6.backend.toWrite,$6.backend.expression);
 		makeAvailableTmpVar(stackBE->top->tmpVarList);
 
-		ToWrite toWrite = createForBackend(stackBE, &$4.backend.toWrite,&$5.backend,typeToBackend(&$5.type), &$7.backend.toWrite, &$9, 
+		ToWrite toWrite = createForBackend(stackBE, &$3.backend.toWrite,&$4.backend,typeToBackend(&$4.type), &$6.backend.toWrite, &$8, 
 			generateForLabel(stackBE), generateTestLabel(stackBE));
 		$$ = toWrite;
-	}
-	| FOR '(' new_stage expression_statement expression_statement ')' statement {
-		if($5.type.isPtr==1){printf("\nWarning: use pointer instead of int\n");}
-		if(!($5.type.isPtr==1 || ($5.type.isPtr==0 && $5.type.isUnary==1 && $5.type.unaryType == INT_T))){
-			fprintf(stderr,"\nif need a int value\n"); yyerror("SEMANTIC ERROR"); 
-		}
-		ToWrite a = {0};
-		$$ = a;
-		
 	}
 	
     ;
