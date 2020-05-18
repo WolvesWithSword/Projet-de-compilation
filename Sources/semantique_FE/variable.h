@@ -143,6 +143,8 @@ typedef struct _BackendTransit{
 	Content* expression;
 	int isTmpVar;
 	TmpVar* tmpVar;
+
+	ToWrite toWrite;		
 } BackendTransit;
 
 typedef struct _Expression
@@ -159,6 +161,7 @@ typedef struct _Expression
 typedef struct _TransitParameter{
 	ParameterType* parameters;
 	Content* content;
+	ToWrite toWrite;
 } TransitParameter;
 
 
@@ -252,11 +255,13 @@ StackBE* stackBE;
 TypeBE typeToBackend(Type* type);
 char* toStringTypeBE(TypeBE type);
 void freeContent(Content* content);
+void addToWriteContent(ToWrite* toWrite,Content* content);
 //###################### ToWrite ###############################
 
 ToWrite* initToWrite();
 Content* initContent();
-
+void addToWriteToWrite(ToWrite* toWrite,ToWrite* toWrite2);
+void addTabulationToWrite(ToWrite* toWrite,int number);
 //###################### TMP VAR ###############################
 TmpVar* initTmpVar();
 TmpVar* getTmpVar(TmpVar** list, TypeBE type);
@@ -272,9 +277,9 @@ Content* tmpToContent(TmpVar* tmpVar);
 StackBE* newStackBE();
 NodeBE* initNodeBE();
 void addStageToStackBE(StackBE* stack);
-void removeStageToStackBE(StackBE* stack);
+ToWrite removeStageToStackBE(StackBE* stack);
 TmpVar* getTmpVarStackBE(StackBE* stack,TypeBE type);
-void addToWriteStackBE(StackBE* stack,Content* content);
+void addToWriteStackBE(StackBE* stack,ToWrite* toWrite);
 void addDeclarationStackBE(StackBE* stack,Content* content);
 
 void* printBackend(StackBE* write);
@@ -287,5 +292,11 @@ void affectToTmp(StackBE* stack, BackendTransit* bt, TypeBE type);
 void operationTraitement(StackBE* stack, BackendTransit* left, TypeBE leftType, BackendTransit* right, TypeBE rightType, char* op);
 Content* variableDeclarationToBE(Variable* variable);
 Content* fonctionDeclarationToBE(Fonction* fonction);
+
+
+//###############################else if ########################################"
+ToWrite createIfBackend(StackBE* stack, BackendTransit* cnd,TypeBE cndType, ToWrite* corps, char* ifLabel, char* elseLabel);
+char* generateIfLabel(StackBE* stack);
+char* generateElseLabel(StackBE* stack);
 
 #endif

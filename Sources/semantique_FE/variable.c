@@ -138,11 +138,23 @@ typedef struct _Content
 	struct _Content* next; 
 } Content; 
 
+
+
+typedef struct _ToWrite
+{
+	Content* first;
+	Content* last;
+
+} ToWrite; 
+
+
 typedef struct _BackendTransit{
 	int hasOp;
 	Content* expression;
 	int isTmpVar;
 	TmpVar* tmpVar;
+
+	ToWrite toWrite;
 } BackendTransit;
 
 
@@ -168,15 +180,6 @@ typedef struct _Label
 
 
 
-typedef struct _ToWrite
-{
-	Content* first;
-	Content* last;
-
-} ToWrite; 
-
-
-
 
 typedef struct _NodeBE
 {
@@ -190,11 +193,14 @@ typedef struct _NodeBE
 typedef struct _StackBE
 {
 	NodeBE* top;
+	Label label;
 } StackBE;
 
 typedef struct _TransitParameter{
 	ParameterType* parameters;
 	Content* content;
+
+	ToWrite toWrite;
 } TransitParameter;
 //============================ implicite declaration========================================
 void freeTypeStruct(TypeStruct* typeStruct);
@@ -869,6 +875,14 @@ void addToWriteToWrite(ToWrite* toWrite,ToWrite* toWrite2){
 	}
 }
 
+void addTabulationToWrite(ToWrite* toWrite,int number){
+	Content* current = toWrite->first;
+	while(current!=NULL){
+		current->tabulation += number;
+		current = current->next;
+	}
+}
+
 //###################### TMP VAR ###############################
 TmpVar* initTmpVar(){
 	TmpVar* var = malloc(sizeof(TmpVar));
@@ -979,23 +993,23 @@ void addStageToStackBE(StackBE* stack){
 	}else newStage->stageNb = newStage->next->stageNb+1;
 }
 
-void removeStageToStackBE(StackBE* stack){
+ToWrite removeStageToStackBE(StackBE* stack){
 	NodeBE* deleteStage = stack->top;
 	stack->top = deleteStage->next;
 
-	addToWriteToWrite(stack->top->toWrite,deleteStage->declaration);
+	ToWrite toWrite = {0};
+	addToWriteToWrite(&toWrite,deleteStage->declaration);
 	
 	TmpVar* current = deleteStage->tmpVarList;
 	Content* currentContent;
 	while(current != NULL){
 		currentContent = tmpToContent(current);
-		currentContent->tabulation = deleteStage->stageNb;
-		addToWriteContent(stack->top->toWrite,currentContent);
+		addToWriteContent(&toWrite,currentContent);
 		current = current->next;
 	}
-	addToWriteToWrite(stack->top->toWrite,deleteStage->toWrite);
 	//TODO faire les free
 	free(deleteStage);
+	return toWrite;
 }
 
 TmpVar* getTmpVarStackBE(StackBE* stack,TypeBE type){
@@ -1010,9 +1024,8 @@ TmpVar* getTmpVarStackBE(StackBE* stack,TypeBE type){
 }
 
 
-void addToWriteStackBE(StackBE* stack,Content* content){
-	content->tabulation = stack->top->stageNb;
-	addToWriteContent(stack->top->toWrite,content);
+void addToWriteStackBE(StackBE* stack,ToWrite* toWrite){
+	addToWriteToWrite(stack->top->toWrite,toWrite);
 }
 
 void addDeclarationStackBE(StackBE* stack,Content* content){
@@ -1091,7 +1104,7 @@ void affectToTmp(StackBE* stack, BackendTransit* bt, TypeBE type){
 		concatContent(content, bt->expression->data);
 		concatContent(content,";\n");
 
-		addToWriteStackBE(stack,content);
+		addToWriteContent(&bt->toWrite,content);
 		copyContent(bt->expression,tmpVar->name);
 		bt->isTmpVar = 1;
 		bt->tmpVar = tmpVar;
@@ -1100,11 +1113,15 @@ void affectToTmp(StackBE* stack, BackendTransit* bt, TypeBE type){
 }
 
 void operationTraitement(StackBE* stack, BackendTransit* left, TypeBE leftType, BackendTransit* right, TypeBE rightType, char* op){
+
 	affectToTmp(stack,right,rightType);
 	affectToTmp(stack,left,leftType);
 
 	concatContent(left->expression, op);
 	concatContent(left->expression, right->expression->data);
+
+	addToWriteToWrite(&right->toWrite,&left->toWrite);
+	left->toWrite = right->toWrite;
 
 	freeContent(right->expression);	
 	left->hasOp = 1;
@@ -1122,7 +1139,7 @@ Content* variableDeclarationToBE(Variable* variable){
 }
 
 Content* fonctionDeclarationToBE(Fonction* fonction){
-	char* type = toStringTypeBE(typeToBackend(fonction->type));
+	char* type = toStringTypeBE(typeToBackend(fonction->type->functionType->returnType));
 	Content* content = initContent();
 	concatContent(content,type);
 	concatContent(content,"usr_");
@@ -1139,6 +1156,35 @@ Content* fonctionDeclarationToBE(Fonction* fonction){
 	}
 	concatContent(content,")");
 	return content;
+}
+
+ToWrite createIfBackend(StackBE* stack, BackendTransit* cnd,TypeBE cndType, ToWrite* corps, char* ifLabel, char* elseLabel){
+	ToWrite writter = {0};
+	affectToTmp(stack,cnd,cndType);
+	addToWriteToWrite(&writter,&cnd->toWrite);
+	
+	Content* ifCnd = initContent();
+	concatContent(ifCnd,"if( ");
+	concatContent(ifCnd,cnd->expression->data);
+	concatContent(ifCnd,") goto ");
+	concatContent(ifCnd,ifLabel);
+	concatContent(ifCnd," ;\n");
+	concatContent(ifCnd,"goto ");
+	concatContent(ifCnd,elseLabel);
+	concatContent(ifCnd," ;\n");
+	concatContent(ifCnd,ifLabel);
+	concatContent(ifCnd,":\n");
+	addToWriteContent(&writter,ifCnd);
+
+	addToWriteToWrite(&writter,corps);
+	
+	Content* elsePart = initContent();
+	concatContent(elsePart,elseLabel);
+	concatContent(elsePart,":\n");
+
+	addToWriteContent(&writter,elsePart);
+	return writter;
+	
 }
 
 int test(){

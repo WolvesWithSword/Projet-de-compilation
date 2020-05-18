@@ -18,6 +18,8 @@
     TypeStruct* typeStruct;
     TransitParameter parameterType;
 	ExpressionTransit expr;
+
+	ToWrite toWrite;
 }
 
 %token <name> IDENTIFIER
@@ -56,6 +58,16 @@
 %type <expr> logical_or_expression
 %type <expr> expression
 %type <expr> expression_statement
+
+%type <toWrite> statement
+%type <toWrite> declaration
+%type <toWrite> declaration_statement_list
+%type <toWrite> selection_statement
+%type <toWrite> iteration_statement
+%type <toWrite> jump_statement
+%type <toWrite> compound_statement
+%type <toWrite> function_definition
+%type <toWrite> remove_stage
 
 %start program
 %%
@@ -115,6 +127,7 @@ postfix_expression
 
 				
 				affectToTmp(stackBE, &$1.backend, typeToBackend(&$1.type));
+				addToWriteToWrite(&$1.backend.toWrite,&$3.toWrite);
 				exp.backend = $1.backend;
 				concatContent(exp.backend.expression,"(");
 				concatContent(exp.backend.expression,$3.content->data);
@@ -173,13 +186,16 @@ argument_expression_list
 		TransitParameter transit;
 		transit.parameters = pt;
 		transit.content=$1.backend.expression;
+		transit.toWrite = $1.backend.toWrite;
 		$$=transit; /*TODO faire le free*/
     }
    	| argument_expression_list ',' expression {
 		Type* type = initType();typeCopy(type,&$3.type);
 		addParameterType(&$1.parameters,type);/*Liste des argument d'un appelle de fonction*/
-
 		affectToTmp(stackBE,&$3.backend,typeToBackend(&$3.type));
+
+		addToWriteToWrite(&$1.toWrite,&$3.backend.toWrite);
+
 		concatContent($1.content," , ");
 		concatContent($1.content,$3.backend.expression->data);
 		freeContent($3.backend.expression);
@@ -463,10 +479,11 @@ expression
 
 declaration
     : declaration_specifiers declarator ';' {
+		ToWrite toWrite = {0};
     	if($2.variableD == NULL && $2.fonctionD == NULL && $2.name != NULL) {
 
             if(isExistingInStageName(stack,$2.name)) {fprintf(stderr,"\nPrevious declaration of %s was here\n",$2.name); yyerror("SEMANTIC ERROR");}     
-        
+      
             $1->isPtr = $2.isPtr;
             Variable* var = initVariable();
             var->name = $2.name;
@@ -475,7 +492,10 @@ declaration
 			
 			Content* varString = variableDeclarationToBE(var);
 			concatContent(varString,";\n");
-			addDeclarationStackBE(stackBE,varString);
+
+
+			addToWriteContent(&toWrite,varString);
+			$$ = toWrite;
         }
         else if($2.variableD == NULL && $2.fonctionD != NULL && $2.name != NULL) {
 
@@ -490,13 +510,16 @@ declaration
                
             addFonctionToStack(stack,$2.fonctionD);
 
-		Content* fct = fonctionDeclarationToBE($2.fonctionD);
-		concatContent(fct,";\n\n");
-		addToWriteStackBE(stackBE,fct);
+			Content* fct = fonctionDeclarationToBE($2.fonctionD);
+			concatContent(fct,";\n\n");
+
+			
+			addToWriteContent(&toWrite,fct);
+			$$ = toWrite;
         }
         else{fprintf(stderr,"\ndeclaration error\n"); yyerror("SEMANTIC ERROR");}
     }
-    | struct_specifier ';'
+    | struct_specifier ';' {ToWrite toWrite = {0}; $$ = toWrite;}
     ;
 
 declaration_specifiers
@@ -591,39 +614,60 @@ parameter_declaration
     ;
 
 statement
-    : compound_statement
-    | expression_statement
-    | selection_statement
-    | iteration_statement
-    | jump_statement 
+    : compound_statement {$$=$1;}
+    | expression_statement {$$=$1.backend.toWrite;}
+    | selection_statement {$$=$1;}
+    | iteration_statement {$$=$1;}
+    | jump_statement  {$$=$1;}
     ;
 
 new_stage
     : {printf("\nadd stage\n");addStageToStack(stack);
-
-		Content* content = initContent();
-		concatContent(content,"{\n");
-		addToWriteStackBE(stackBE,content);
 		addStageToStackBE(stackBE);};
 
 remove_stage
-    : {printf("\nremove stage\n");printStack(stack);removeStageToStack(stack);
-		removeStageToStackBE(stackBE);
-		Content* content = initContent();
-		concatContent(content,"}\n");
-
-		addToWriteStackBE(stackBE,content);};
+    : {/*printf("\nremove stage\n");printStack(stack);*/removeStageToStack(stack);
+		ToWrite toWrite = removeStageToStackBE(stackBE);
+		$$ = toWrite;
+	};
 
 compound_statement
-    : '{' '}'
-    | '{' new_stage declaration_statement_list '}' remove_stage
+    : '{' '}'{
+		ToWrite toWrite = {0};
+		Content* content = initContent();
+		concatContent(content,"{ }\n");
+		addToWriteContent(&toWrite,content);
+		$$ = toWrite;
+	}
+    | '{' new_stage declaration_statement_list '}' remove_stage {
+		ToWrite toWrite = {0};
+		Content* content = initContent();
+		concatContent(content,"{\n");
+
+		addToWriteContent(&toWrite,content);
+
+		//ajout des delcaration
+		addTabulationToWrite(&$5,stackBE->top->stageNb+1);
+		addToWriteToWrite(&toWrite,&$5);
+
+		//ajout des expression
+		addTabulationToWrite(&$3,stackBE->top->stageNb+1);
+		addToWriteContent(&toWrite,$3.first);
+		
+
+		Content* content2 = initContent();
+		concatContent(content2,"}\n");
+		addToWriteContent(&toWrite,content2);
+
+		$$ = toWrite;
+	}
     ;
 
 declaration_statement_list
-	: declaration_statement_list declaration
-	| declaration_statement_list statement
-	| declaration
-	| statement {
+	: declaration_statement_list declaration {addToWriteToWrite(&$1,&$2);$$=$1;}
+	| declaration_statement_list statement {addToWriteToWrite(&$1,&$2);$$=$1;}
+	| declaration {$$=$1;}
+	| statement {$$=$1;
 	/*declaration_list
     : declaration
     | declaration_list declaration
@@ -642,47 +686,12 @@ expression_statement
     | expression ';' {
 		if($1.backend.expression->data != NULL){
 			concatContent($1.backend.expression,";\n");
-			addToWriteStackBE(stackBE,$1.backend.expression);
+			addToWriteContent(&$1.backend.toWrite,$1.backend.expression);
 			makeAvailableTmpVar(stackBE->top->tmpVarList);
 		}
 		$$ = $1;
 	}
-	| declaration_specifiers declarator '=' expression ';' {
-		if($2.variableD == NULL && $2.fonctionD == NULL && $2.name != NULL) {//TODO gere pour backend;
-
-            if(isExistingInStageName(stack,$2.name)) {fprintf(stderr,"\nPrevious declaration of %s was here\n",$2.name); yyerror("SEMANTIC ERROR");}     
-        
-            $1->isPtr = $2.isPtr;
-            Variable* var = initVariable();
-            var->name = $2.name;
-            var->type = $1;
-            addVariableToStack(stack,var);
-
-			/* on verifie ce que l'on affecte */
-			int res = compareTypeForOp(var->type,&$4.type);
-			if(res == 2){fprintf(stderr,"\nWarning : makes integer from pointer\n");}
-            else if(res == 0){fprintf(stderr,"\nError: incompatible types when assigning\n"); yyerror("SEMANTIC ERROR");}
-        }
-        else if($2.variableD == NULL && $2.fonctionD != NULL && $2.name != NULL) {
-
-            if(isExistingInStageFunction(stack,$2.fonctionD)) {fprintf(stderr,"\nPrevious declaration of %s was here\n",$2.name); yyerror("SEMANTIC ERROR");} 
-                
-            $2.fonctionD->type->isFunction = 1;
-            $1->isPtr = $2.isPtr;
-            $2.fonctionD->type->functionType = initFunctionType();
-            $2.fonctionD->type->functionType->returnType = $1;
-			$2.fonctionD->type->functionType->returnType->isPtr = $2.isPtr;
-            $2.fonctionD->type->functionType->parameters = variableToParameterType($2.fonctionD->variables);
-               
-            addFonctionToStack(stack,$2.fonctionD);
-
-			/* on verifie ce que l'on affecte */
-			int res = compareTypeForOp($2.fonctionD->type,&$4.type);
-			if(res == 2){fprintf(stderr,"\nWarning : makes integer from pointer\n");}
-            else if(res == 0){fprintf(stderr,"\nError: incompatible types when assigning\n"); yyerror("SEMANTIC ERROR");}
-        }
-        else{fprintf(stderr,"\ndeclaration error\n"); yyerror("SEMANTIC ERROR");}
-	}
+	
     ;
 
 selection_statement
@@ -691,6 +700,10 @@ selection_statement
 		if(!($3.type.isPtr==1 || ($3.type.isPtr==0 && $3.type.isUnary==1 && $3.type.unaryType == INT_T))){
 			fprintf(stderr,"\nif need a int value\n"); yyerror("SEMANTIC ERROR"); 
 		}
+		
+		//ToWrite toWrite = createIfBackend(stackBE, &$3.backend,typeToBackend(&$3.type), &$5, generateIfLabel(stackBE), generateElseLabel(stackBE));
+		ToWrite toWrite = createIfBackend(stackBE, &$3.backend,typeToBackend(&$3.type), &$5, "if", "else");
+		$$=toWrite;
 	}	
     | IF '(' expression ')' statement ELSE statement{
 		if($3.type.isPtr==1){printf("\nWarning: use pointer instead of int\n");}
@@ -712,12 +725,17 @@ iteration_statement
 		if(!($5.type.isPtr==1 || ($5.type.isPtr==0 && $5.type.isUnary==1 && $5.type.unaryType == INT_T))){
 			fprintf(stderr,"\nif need a int value\n"); yyerror("SEMANTIC ERROR"); 
 		}
+		ToWrite a = {0};
+		$$ = a;
 	}
-	| FOR '(' new_stage expression_statement expression_statement ')' statement remove_stage {
+	| FOR '(' new_stage expression_statement expression_statement ')' statement {
 		if($5.type.isPtr==1){printf("\nWarning: use pointer instead of int\n");}
 		if(!($5.type.isPtr==1 || ($5.type.isPtr==0 && $5.type.isUnary==1 && $5.type.unaryType == INT_T))){
 			fprintf(stderr,"\nif need a int value\n"); yyerror("SEMANTIC ERROR"); 
 		}
+		ToWrite a = {0};
+		$$ = a;
+		
 	}
 	
     ;
@@ -727,8 +745,12 @@ jump_statement
 		Content* content = initContent();
 		concatContent(content,"return ;\n");
 
-		addToWriteStackBE(stackBE,content);
+
 		makeAvailableTmpVar(stackBE->top->tmpVarList);
+		
+		ToWrite toWrite = {0};
+		addToWriteContent(&toWrite,content);
+		$$ = toWrite;
 	}
     | RETURN expression ';' {//TODO : warning si deux return
 		Fonction* currentFonction = getCurrentFonction(stack);
@@ -738,9 +760,12 @@ jump_statement
 
 		concatBeforeContent($2.backend.expression,"return ");
 		concatContent($2.backend.expression,";\n");
-		
-		addToWriteStackBE(stackBE,$2.backend.expression);
+		ToWrite toWrite = {0};
+
+		addToWriteToWrite(&toWrite,&$2.backend.toWrite);
+		addToWriteContent(&toWrite,$2.backend.expression);
 		makeAvailableTmpVar(stackBE->top->tmpVarList);
+		$$ = toWrite;
 	}		
     ;
 
@@ -750,8 +775,8 @@ program
     ;
 
 external_declaration
-    : function_definition
-    | declaration
+    : function_definition {addToWriteStackBE(stackBE,&$1);}
+    | declaration {addToWriteStackBE(stackBE,&$1);}
     ;
 
 function_definition
@@ -772,11 +797,13 @@ function_definition
         stack->top->currentFunction = $2.fonctionD;
 
 		Content* fct = fonctionDeclarationToBE($2.fonctionD);
-		addToWriteStackBE(stackBE,fct);
 
+		ToWrite toWrite = {0};
+		addToWriteContent(&toWrite,fct);
+		$<toWrite>$ = toWrite;
 
     } 
-    compound_statement
+    compound_statement {addToWriteToWrite(&$<toWrite>3,&$4);$$=$<toWrite>3;}
     ;
 
 %%
