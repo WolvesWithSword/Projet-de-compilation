@@ -701,8 +701,7 @@ selection_statement
 			fprintf(stderr,"\nif need a int value\n"); yyerror("SEMANTIC ERROR"); 
 		}
 		
-		//ToWrite toWrite = createIfBackend(stackBE, &$3.backend,typeToBackend(&$3.type), &$5, generateIfLabel(stackBE), generateElseLabel(stackBE));
-		ToWrite toWrite = createIfBackend(stackBE, &$3.backend,typeToBackend(&$3.type), &$5, "if", "else");
+		ToWrite toWrite = createIfBackend(stackBE, &$3.backend,typeToBackend(&$3.type), &$5, generateIfLabel(stackBE), generateContinueLabel(stackBE));
 		$$=toWrite;
 	}	
     | IF '(' expression ')' statement ELSE statement{
@@ -710,6 +709,9 @@ selection_statement
 		if(!($3.type.isPtr==1 || ($3.type.isPtr==0 && $3.type.isUnary==1 && $3.type.unaryType == INT_T))){
 			fprintf(stderr,"\nif need a int value\n"); yyerror("SEMANTIC ERROR"); 
 		}
+
+		ToWrite toWrite = createIfElseBackend(stackBE, &$3.backend, typeToBackend(&$3.type), &$5, &$7, generateIfLabel(stackBE), generateElseLabel(stackBE),generateContinueLabel(stackBE));
+		$$=toWrite;
 	}
     ;
 
@@ -719,14 +721,23 @@ iteration_statement
 		if(!($3.type.isPtr==1 || ($3.type.isPtr==0 && $3.type.isUnary==1 && $3.type.unaryType == INT_T))){
 			fprintf(stderr,"\nif need a int value\n"); yyerror("SEMANTIC ERROR"); 
 		}
+		ToWrite toWrite = createWhileBackend(stackBE, &$3.backend, typeToBackend(&$3.type), &$5, generateWhileLabel(stackBE), generateBodyLabel(stackBE),generateContinueLabel(stackBE));
+		$$=toWrite;
+		
 	}
-    | FOR '(' new_stage expression_statement expression_statement expression ')' statement remove_stage{
+    | FOR '(' new_stage expression_statement expression ';' expression ')' statement remove_stage{
 		if($5.type.isPtr==1){printf("\nWarning: use pointer instead of int\n");}
 		if(!($5.type.isPtr==1 || ($5.type.isPtr==0 && $5.type.isUnary==1 && $5.type.unaryType == INT_T))){
 			fprintf(stderr,"\nif need a int value\n"); yyerror("SEMANTIC ERROR"); 
 		}
-		ToWrite a = {0};
-		$$ = a;
+
+		concatContent($7.backend.expression,";\n");
+		addToWriteContent(&$7.backend.toWrite,$7.backend.expression);
+		makeAvailableTmpVar(stackBE->top->tmpVarList);
+
+		ToWrite toWrite = createForBackend(stackBE, &$4.backend.toWrite,&$5.backend,typeToBackend(&$5.type), &$7.backend.toWrite, &$9, 
+			generateForLabel(stackBE), generateTestLabel(stackBE));
+		$$ = toWrite;
 	}
 	| FOR '(' new_stage expression_statement expression_statement ')' statement {
 		if($5.type.isPtr==1){printf("\nWarning: use pointer instead of int\n");}

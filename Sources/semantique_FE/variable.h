@@ -6,9 +6,10 @@ struct _TypeStruct;
 struct _Variable;
 struct _ParameterType;
 struct _FunctionType;
+/*====================Type des variable==============*/
 
 typedef enum { VOID_T, INT_T } UnaryType;
-typedef enum { VOID_PTR_BE, INT_BE } TypeBE;
+typedef enum { VOID_PTR_BE, INT_BE, VOID_BE } TypeBE;
 
 typedef struct _Type
 {
@@ -19,6 +20,17 @@ typedef struct _Type
 	UnaryType unaryType;
 	struct _TypeStruct* typeStruct;
 } Type;
+
+/*
+type d'une structure
+type1 variable1; -> node avec isFonction a 0;
+type2 variable2;
+type3 variable3;
+
+struct abc a;
+a->x => x doit etre dans struct abc 
+*/
+
 
 typedef struct _TypeStruct
 {
@@ -37,6 +49,7 @@ typedef struct _ParameterType
 	struct _ParameterType *next;
 } ParameterType;
 
+
 /*
 Type d'une fonction
 */
@@ -47,6 +60,9 @@ typedef struct _FunctionType
 } FunctionType;
 
 
+/*
+Represente la declaration d'une variable
+*/
 typedef struct _Variable
 {
 	Type* type;
@@ -56,6 +72,9 @@ typedef struct _Variable
 } Variable; 
 
 
+/*
+Represente la declaration d'une fonction
+*/
 typedef struct _Fonction
 {
 	Type* type;
@@ -65,6 +84,10 @@ typedef struct _Fonction
 	struct _Fonction *next;
 } Fonction; 
 
+
+/*
+Represente la list chainée + un noeud du block de la pile
+*/
 typedef struct _LinkedListNode
 {
 	Fonction* fonctionList; 
@@ -76,6 +99,9 @@ typedef struct _LinkedListNode
 } LinkedListNode; 
 
 
+/*
+Represente la pile qui contient la liste des block
+*/
 typedef struct _Stack
 {
 	LinkedListNode* top;
@@ -90,12 +116,14 @@ typedef struct _Transit
 	int isPtr;
 } Transit;
 
-typedef struct _Label
+typedef struct _TmpVar
 {
-	int NumElse;
-	int NumIf;
-
-} Label;
+	TypeBE type; 
+	char name[10];
+	int isAvailable;	
+	
+	struct _TmpVar* next;
+} TmpVar;
 
 typedef struct _Content
 {
@@ -107,6 +135,8 @@ typedef struct _Content
 	struct _Content* next; 
 } Content; 
 
+
+
 typedef struct _ToWrite
 {
 	Content* first;
@@ -114,14 +144,43 @@ typedef struct _ToWrite
 
 } ToWrite; 
 
-typedef struct _TmpVar
+
+typedef struct _BackendTransit{
+	int hasOp;
+	Content* expression;
+	int isTmpVar;
+	TmpVar* tmpVar;
+
+	ToWrite toWrite;
+} BackendTransit;
+
+
+typedef struct _Expression
 {
-	TypeBE type; 
-	char name[10];
-	int isAvailable;	
+	Type type;
+	int isId;
+	int isAffectable;
+	char* nameId;
 	
-	struct _TmpVar* next;
-} TmpVar;
+	BackendTransit backend;
+	
+} ExpressionTransit;
+
+
+
+typedef struct _Label
+{
+	int numElse;
+	int numIf;
+	int numContinue;
+	int numWhile;
+	int numBody;
+	int numTest;
+	int numFor;
+
+} Label;
+
+
 
 
 typedef struct _NodeBE
@@ -136,31 +195,15 @@ typedef struct _NodeBE
 typedef struct _StackBE
 {
 	NodeBE* top;
+	Label label;
+	int hasOr;
+	int hasAnd;
 } StackBE;
-
-typedef struct _BackendTransit{
-	int hasOp;
-	Content* expression;
-	int isTmpVar;
-	TmpVar* tmpVar;
-
-	ToWrite toWrite;		
-} BackendTransit;
-
-typedef struct _Expression
-{
-	Type type;
-	int isId;
-	int isAffectable;
-	char* nameId;
-	
-	BackendTransit backend;
-	
-} ExpressionTransit;
 
 typedef struct _TransitParameter{
 	ParameterType* parameters;
 	Content* content;
+
 	ToWrite toWrite;
 } TransitParameter;
 
@@ -296,7 +339,18 @@ Content* fonctionDeclarationToBE(Fonction* fonction);
 
 //###############################else if ########################################"
 ToWrite createIfBackend(StackBE* stack, BackendTransit* cnd,TypeBE cndType, ToWrite* corps, char* ifLabel, char* elseLabel);
+ToWrite createIfElseBackend(StackBE* stack, BackendTransit* cnd,TypeBE cndType, ToWrite* ifCorps,ToWrite* elseCorps, char* ifLabel, char* elseLabel,char* continueLabel);
+ToWrite createWhileBackend(StackBE* stack, BackendTransit* cnd,TypeBE cndType, ToWrite* corps, char* whileLabel,char* bodyLabel, char* continueLabel);
+ToWrite createForBackend(StackBE* stack,ToWrite* init, BackendTransit* cnd,TypeBE cndType, ToWrite* incrmt, ToWrite* corps, char* forLabel, char* testLabel);
 char* generateIfLabel(StackBE* stack);
 char* generateElseLabel(StackBE* stack);
+char* generateWhileLabel(StackBE* stack);
+char* generateContinueLabel(StackBE* stack);
+char* generateBodyLabel(StackBE* stack);
+char* generateTestLabel(StackBE* stack);
+char* generateForLabel(StackBE* stack);
+
+Content* andFun();
+Content* orFun();
 
 #endif

@@ -173,8 +173,13 @@ typedef struct _Expression
 
 typedef struct _Label
 {
-	int NumElse;
-	int NumIf;
+	int numElse;
+	int numIf;
+	int numContinue;
+	int numWhile;
+	int numBody;
+	int numTest;
+	int numFor;
 
 } Label;
 
@@ -194,6 +199,8 @@ typedef struct _StackBE
 {
 	NodeBE* top;
 	Label label;
+	int hasOr;
+	int hasAnd;
 } StackBE;
 
 typedef struct _TransitParameter{
@@ -1164,27 +1171,252 @@ ToWrite createIfBackend(StackBE* stack, BackendTransit* cnd,TypeBE cndType, ToWr
 	addToWriteToWrite(&writter,&cnd->toWrite);
 	
 	Content* ifCnd = initContent();
-	concatContent(ifCnd,"if( ");
+	concatContent(ifCnd,"if(");
 	concatContent(ifCnd,cnd->expression->data);
 	concatContent(ifCnd,") goto ");
 	concatContent(ifCnd,ifLabel);
-	concatContent(ifCnd," ;\n");
-	concatContent(ifCnd,"goto ");
-	concatContent(ifCnd,elseLabel);
-	concatContent(ifCnd," ;\n");
-	concatContent(ifCnd,ifLabel);
-	concatContent(ifCnd,":\n");
+	concatContent(ifCnd,";\n");
 	addToWriteContent(&writter,ifCnd);
+
+	Content* gotoElse = initContent();
+	concatContent(gotoElse,"goto ");
+	concatContent(gotoElse,elseLabel);
+	concatContent(gotoElse,";\n");
+	addToWriteContent(&writter,gotoElse);
+
+	Content* gotoIf = initContent();
+	concatContent(gotoIf,ifLabel);
+	concatContent(gotoIf,":\n");
+	addToWriteContent(&writter,gotoIf);
 
 	addToWriteToWrite(&writter,corps);
 	
 	Content* elsePart = initContent();
 	concatContent(elsePart,elseLabel);
 	concatContent(elsePart,":\n");
-
 	addToWriteContent(&writter,elsePart);
+
 	return writter;
 	
+}
+
+ToWrite createIfElseBackend(StackBE* stack, BackendTransit* cnd ,TypeBE cndType, ToWrite* ifCorps,ToWrite* elseCorps, char* ifLabel, char* elseLabel,char* continueLabel){
+	ToWrite writter = {0};
+	affectToTmp(stack,cnd,cndType);
+	addToWriteToWrite(&writter,&cnd->toWrite);
+	
+	Content* ifCnd = initContent();
+	concatContent(ifCnd,"if(");
+	concatContent(ifCnd,cnd->expression->data);
+	concatContent(ifCnd,") goto ");
+	concatContent(ifCnd,ifLabel);
+	concatContent(ifCnd,";\n");
+	addToWriteContent(&writter,ifCnd);
+
+	Content* gotoElse = initContent();
+	concatContent(gotoElse,"goto ");
+	concatContent(gotoElse,elseLabel);
+	concatContent(gotoElse,";\n");
+	addToWriteContent(&writter,gotoElse);
+
+	Content* gotoIf = initContent();
+	concatContent(gotoIf,ifLabel);
+	concatContent(gotoIf,":\n");
+	addToWriteContent(&writter,gotoIf);
+	addToWriteToWrite(&writter,ifCorps);
+
+	Content* gotoPart = initContent();
+	concatContent(gotoPart,"goto ");
+	concatContent(gotoPart,continueLabel);
+	concatContent(gotoPart,";\n");
+	addToWriteContent(&writter,gotoPart);
+	
+	Content* elsePart = initContent();
+	concatContent(elsePart,elseLabel);
+	concatContent(elsePart,":\n");
+	addToWriteContent(&writter,elsePart);
+	addToWriteToWrite(&writter,elseCorps);
+
+	Content* continuePart = initContent();
+	concatContent(continuePart,continueLabel);
+	concatContent(continuePart,":\n");
+	addToWriteContent(&writter,continuePart);
+	
+	return writter;
+}
+
+ToWrite createWhileBackend(StackBE* stack, BackendTransit* cnd,TypeBE cndType, ToWrite* corps, char* whileLabel,char* bodyLabel, char* continueLabel){
+	ToWrite writter = {0};
+
+	Content* whilePart = initContent();
+	concatContent(whilePart,whileLabel);
+	concatContent(whilePart,":\n");
+	addToWriteContent(&writter,whilePart);
+
+	Content* gotoWhile = initContent();
+	concatContent(gotoWhile,"goto ");
+	concatContent(gotoWhile,whileLabel);
+	concatContent(gotoWhile,";\n");
+	addToWriteContent(corps,gotoWhile);
+
+	ToWrite tmp = createIfBackend(stack,cnd,cndType,corps,bodyLabel,continueLabel);
+	addToWriteToWrite(&writter,&tmp);
+
+	return writter;
+}
+
+ToWrite createForBackend(StackBE* stack,ToWrite* init, BackendTransit* cnd,TypeBE cndType, ToWrite* incrmt, ToWrite* corps, char* forLabel, char* testLabel){
+	ToWrite writter = {0};
+
+	addToWriteToWrite(&writter,init);
+
+	Content* gotoTest = initContent();
+	concatContent(gotoTest,"goto ");
+	concatContent(gotoTest,testLabel);
+	concatContent(gotoTest,";\n");
+	addToWriteContent(&writter,gotoTest);
+
+	Content* forPart = initContent();
+	concatContent(forPart,forLabel);
+	concatContent(forPart,":\n");
+	addToWriteContent(&writter,forPart);
+
+	addToWriteToWrite(&writter,corps);
+	addToWriteToWrite(&writter,incrmt);
+
+	Content* testPart = initContent();
+	concatContent(testPart,testLabel);
+	concatContent(testPart,":\n");
+	addToWriteContent(&writter,testPart);
+
+	affectToTmp(stack,cnd,cndType);
+	addToWriteToWrite(&writter,&cnd->toWrite);
+	
+	Content* ifCnd = initContent();
+	concatContent(ifCnd,"if(");
+	concatContent(ifCnd,cnd->expression->data);
+	concatContent(ifCnd,") goto ");
+	concatContent(ifCnd,forLabel);
+	concatContent(ifCnd,";\n");
+	addToWriteContent(&writter,ifCnd);
+
+	return writter;	
+}
+
+char* generateTestLabel(StackBE* stack){
+	Label label = stack->label;
+	
+	char* testLabel = calloc(12,sizeof(char));
+    strcpy(testLabel,"test");
+	char buff[5];
+	sprintf(buff,"%d",label.numTest);
+	strcat(testLabel,buff);
+	
+	stack->label.numTest += 1;
+	
+	return testLabel;
+}
+char* generateForLabel(StackBE* stack){
+	Label label = stack->label;
+	
+	char* forLabel = calloc(9,sizeof(char));
+    strcpy(forLabel,"for");
+	char buff[5];
+	sprintf(buff,"%d",label.numFor);
+	strcat(forLabel,buff);
+	
+	stack->label.numFor += 1;
+	
+	return forLabel;
+}
+char* generateIfLabel(StackBE* stack){
+	Label label = stack->label;
+	
+	char* ifLabel = calloc(8,sizeof(char));
+    strcpy(ifLabel,"if");
+	char buff[5];
+	sprintf(buff,"%d",label.numIf);
+	strcat(ifLabel,buff);
+	
+	stack->label.numIf += 1;
+	
+	return ifLabel;
+}
+
+char* generateElseLabel(StackBE* stack){
+	Label label = stack->label;
+	
+	char* elseLabel = calloc(10,sizeof(char));
+    strcpy(elseLabel,"else");
+	char buff[5];
+	sprintf(buff,"%d",label.numElse);
+	strcat(elseLabel,buff);
+
+	stack->label.numElse += 1;
+	
+	return elseLabel;
+}
+
+char* generateContinueLabel(StackBE* stack){
+	Label label = stack->label;
+	
+	char* continueLabel = calloc(10,sizeof(char));
+    strcpy(continueLabel,"continue");
+	char buff[5];
+	sprintf(buff,"%d",label.numContinue);
+	strcat(continueLabel,buff);
+
+	stack->label.numContinue += 1;
+	
+	return continueLabel;
+}
+
+char* generateWhileLabel(StackBE* stack){
+	Label label = stack->label;
+	
+	char* whileLabel = calloc(12,sizeof(char));
+    strcpy(whileLabel,"while");
+	char buff[5];
+	sprintf(buff,"%d",label.numWhile);
+	strcat(whileLabel,buff);
+
+	stack->label.numWhile += 1;
+	
+	return whileLabel;
+}
+
+char* generateBodyLabel(StackBE* stack){
+	Label label = stack->label;
+	
+	char* bodyLabel = calloc(10,sizeof(char));
+    strcpy(bodyLabel,"body");
+	char buff[5];
+	sprintf(buff,"%d",label.numBody);
+	strcat(bodyLabel,buff);
+
+	stack->label.numBody += 1;
+	
+	return bodyLabel;
+}
+
+Content* andFun(){
+	Content* andContent = initContent();
+	concatContent(andContent,"int and(int x, int y){\n");
+	concatContent(andContent,"\tif(x==0) goto invalide;\n");
+	concatContent(andContent,"\tif(y==0) goto invalide;\n");
+	concatContent(andContent,"\treturn 1;\n\tinvalide:\n\treturn 0;\n}");
+	
+	return andContent;
+}
+
+Content* orFun(){
+	Content* orContent = initContent();
+	concatContent(orContent,"int or(int x, int y){\n");
+	concatContent(orContent,"\tif(x) goto valide;\n");
+	concatContent(orContent,"\tif(y) goto valide;\n");
+	concatContent(orContent,"\treturn 0;\n\tvalide:\n\treturn 1;\n}");
+	
+	return orContent;
 }
 
 int test(){
