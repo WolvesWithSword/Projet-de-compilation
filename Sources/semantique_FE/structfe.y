@@ -604,7 +604,7 @@ direct_declarator
 
 parameter_list
     : parameter_declaration {$$ = $1;}
-    | parameter_list ',' parameter_declaration {addVariable(&$3,$1); $$ = $3;}
+    | parameter_list ',' parameter_declaration {addVariable(&$1,$3); $$ = $1;}
     ;
 
 parameter_declaration
@@ -613,7 +613,16 @@ parameter_declaration
             $1->isPtr = $2.isPtr;
             Variable* var = initVariable(); var->type = $1; var->name = $2.name; $$ = var;
         }
-        else{fprintf(stderr,"\n %s : Parameters can't be functions declaration\n",$2.name); yyerror("SEMANTIC ERROR");}
+        else if($2.fonctionD != NULL){
+			$2.fonctionD->type->isFunction = 1;
+        	$1->isPtr = $2.isPtr;
+        	$2.fonctionD->type->functionType = initFunctionType();
+        	$2.fonctionD->type->functionType->returnType = $1;
+        	$2.fonctionD->type->functionType->returnType->isPtr = $2.isPtr;
+        	$2.fonctionD->type->functionType->parameters = variableToParameterType($2.fonctionD->variables);
+			Variable* var = initVariable(); var->type = $2.fonctionD->type; var->name = $2.name; $$ = var;
+	}else{yyerror("SEMANTIC ERROR");}
+		
     }
     ;
 
