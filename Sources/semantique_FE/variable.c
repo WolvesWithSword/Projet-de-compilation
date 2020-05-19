@@ -18,21 +18,12 @@ typedef struct _Type
 {
 	int isUnary;
 	int isPtr;
+	int isExtern;
 	int isFunction;
 	struct _FunctionType* functionType;
 	UnaryType unaryType;
 	struct _TypeStruct* typeStruct;
 } Type;
-
-/*
-type d'une structure
-type1 variable1; -> node avec isFonction a 0;
-type2 variable2;
-type3 variable3;
-
-struct abc a;
-a->x => x doit etre dans struct abc 
-*/
 
 
 typedef struct _TypeStruct
@@ -1066,6 +1057,7 @@ void addDeclarationStackBE(StackBE* stack,Content* content){
 Content* comparaisonFonction(char* name,char* cnd);
 Content* andFun();
 Content* orFun();
+
 /*A utilise uniquement quand il reste 1 etage
 et que l'on veut marquer tout dans le fichier*/
 void printBackend(StackBE* stack){
@@ -1152,6 +1144,7 @@ void affectToTmp(StackBE* stack, BackendTransit* bt, TypeBE type){
 void operationTraitement(StackBE* stack, BackendTransit* left, TypeBE leftType, BackendTransit* right, TypeBE rightType, char* op){
 
 	affectToTmp(stack,right,rightType);
+	if(left->isTmpVar == 1) makeAvailableTmpVarByName(stack->top->tmpVarList,left->tmpVar->name);
 	affectToTmp(stack,left,leftType);
 
 	concatContent(left->expression, op);

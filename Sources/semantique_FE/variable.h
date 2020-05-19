@@ -15,6 +15,7 @@ typedef struct _Type
 {
 	int isUnary;
 	int isPtr;
+	int isExtern;
 	int isFunction;
 	struct _FunctionType* functionType;
 	UnaryType unaryType;

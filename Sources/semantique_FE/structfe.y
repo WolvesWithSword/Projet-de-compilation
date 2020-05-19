@@ -368,7 +368,7 @@ relational_expression
 	
 		$1.isId = 0; $1.isAffectable = 0; 
 			
-		callBackendFonction(stackBE,&$1.backend, typeToBackend(&$1.type), &$3.backend, typeToBackend(&$3.type),"Inf",&stackBE->hasInf);
+		callBackendFonction(stackBE,&$1.backend, typeToBackend(&$1.type), &$3.backend, typeToBackend(&$3.type),"inf",&stackBE->hasInf);
 			
 		$$ = $1;
 	}
@@ -378,7 +378,7 @@ relational_expression
 
 		$1.isId = 0; $1.isAffectable = 0; 
 
-		callBackendFonction(stackBE,&$1.backend, typeToBackend(&$1.type), &$3.backend, typeToBackend(&$3.type),"Sup",&stackBE->hasSup);		
+		callBackendFonction(stackBE,&$1.backend, typeToBackend(&$1.type), &$3.backend, typeToBackend(&$3.type),"sup",&stackBE->hasSup);		
 
 		$$ = $1;
 	}
@@ -387,7 +387,7 @@ relational_expression
 		if(cmp==0) {fprintf(stderr,"\n<= : logical expression between wrong types\n"); yyerror("SEMANTIC ERROR");} 
 		$1.isId = 0; $1.isAffectable = 0; 
 
-		callBackendFonction(stackBE,&$1.backend, typeToBackend(&$1.type), &$3.backend, typeToBackend(&$3.type),"InfEq",&stackBE->hasInfEq);
+		callBackendFonction(stackBE,&$1.backend, typeToBackend(&$1.type), &$3.backend, typeToBackend(&$3.type),"infEq",&stackBE->hasInfEq);
 
 		$$ = $1;
 	}
@@ -397,7 +397,7 @@ relational_expression
 		if(cmp==0) {fprintf(stderr,"\n>= : logical expression between wrong types\n"); yyerror("SEMANTIC ERROR");} 
 	$1.isId = 0; $1.isAffectable = 0; 
 
-		callBackendFonction(stackBE,&$1.backend, typeToBackend(&$1.type), &$3.backend, typeToBackend(&$3.type),"SupEq",&stackBE->hasSupEq);
+		callBackendFonction(stackBE,&$1.backend, typeToBackend(&$1.type), &$3.backend, typeToBackend(&$3.type),"supEq",&stackBE->hasSupEq);
 
 		$$ = $1;
 	}
@@ -410,7 +410,7 @@ equality_expression
 		if(cmp==0) {fprintf(stderr,"\n== : logical expression between wrong types\n"); yyerror("SEMANTIC ERROR");} 
 		$1.isId = 0; $1.isAffectable = 0; 
 
-		callBackendFonction(stackBE,&$1.backend, typeToBackend(&$1.type), &$3.backend, typeToBackend(&$3.type),"Eq",&stackBE->hasEq);
+		callBackendFonction(stackBE,&$1.backend, typeToBackend(&$1.type), &$3.backend, typeToBackend(&$3.type),"eq",&stackBE->hasEq);
 
 		$$ = $1;
 	}
@@ -419,7 +419,7 @@ equality_expression
 		if(cmp==0) {fprintf(stderr,"\n!= : logical expression between wrong types\n"); yyerror("SEMANTIC ERROR");} 
 		$1.isId = 0; $1.isAffectable = 0; 
 
-		callBackendFonction(stackBE,&$1.backend, typeToBackend(&$1.type), &$3.backend, typeToBackend(&$3.type),"NoEq",&stackBE->hasNoEq);
+		callBackendFonction(stackBE,&$1.backend, typeToBackend(&$1.type), &$3.backend, typeToBackend(&$3.type),"noEq",&stackBE->hasNoEq);
 
 		$$ = $1;
 	}
@@ -553,7 +553,7 @@ declaration
     ;
 
 declaration_specifiers
-    : EXTERN type_specifier {$$ = $2;/*TODO gerer les externe*/}
+    : EXTERN type_specifier {$2->isExtern = 1; $$ = $2;/*TODO gerer les externe*/}
     | type_specifier {$$ = $1;}
     ;
 
@@ -635,6 +635,7 @@ parameter_list
 
 parameter_declaration
     : declaration_specifiers declarator {
+		if($1->isExtern == 1) {fprintf(stderr,"\n%s : parameter is extern \n",$2.name); yyerror("SEMANTIC ERROR");}
         if($2.variableD == NULL && $2.fonctionD == NULL && $2.name != NULL) { 
             $1->isPtr = $2.isPtr;
             Variable* var = initVariable(); var->type = $1; var->name = $2.name; $$ = var;
