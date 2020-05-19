@@ -1344,102 +1344,6 @@ void callBackendFonction(StackBE* stack, BackendTransit* left, TypeBE leftType, 
 }
 
 
-char* generateTestLabel(StackBE* stack){
-	Label label = stack->label;
-	
-	char* testLabel = calloc(12,sizeof(char));
-    strcpy(testLabel,"test");
-	char buff[5];
-	sprintf(buff,"%d",label.numTest);
-	strcat(testLabel,buff);
-	
-	stack->label.numTest += 1;
-	
-	return testLabel;
-}
-char* generateForLabel(StackBE* stack){
-	Label label = stack->label;
-	
-	char* forLabel = calloc(9,sizeof(char));
-    strcpy(forLabel,"for");
-	char buff[5];
-	sprintf(buff,"%d",label.numFor);
-	strcat(forLabel,buff);
-	
-	stack->label.numFor += 1;
-	
-	return forLabel;
-}
-char* generateIfLabel(StackBE* stack){
-	Label label = stack->label;
-	
-	char* ifLabel = calloc(8,sizeof(char));
-    strcpy(ifLabel,"if");
-	char buff[5];
-	sprintf(buff,"%d",label.numIf);
-	strcat(ifLabel,buff);
-	
-	stack->label.numIf += 1;
-	
-	return ifLabel;
-}
-
-char* generateElseLabel(StackBE* stack){
-	Label label = stack->label;
-	
-	char* elseLabel = calloc(10,sizeof(char));
-    strcpy(elseLabel,"else");
-	char buff[5];
-	sprintf(buff,"%d",label.numElse);
-	strcat(elseLabel,buff);
-
-	stack->label.numElse += 1;
-	
-	return elseLabel;
-}
-
-char* generateContinueLabel(StackBE* stack){
-	Label label = stack->label;
-	
-	char* continueLabel = calloc(10,sizeof(char));
-    strcpy(continueLabel,"continue");
-	char buff[5];
-	sprintf(buff,"%d",label.numContinue);
-	strcat(continueLabel,buff);
-
-	stack->label.numContinue += 1;
-	
-	return continueLabel;
-}
-
-char* generateWhileLabel(StackBE* stack){
-	Label label = stack->label;
-	
-	char* whileLabel = calloc(12,sizeof(char));
-    strcpy(whileLabel,"while");
-	char buff[5];
-	sprintf(buff,"%d",label.numWhile);
-	strcat(whileLabel,buff);
-
-	stack->label.numWhile += 1;
-	
-	return whileLabel;
-}
-
-char* generateBodyLabel(StackBE* stack){
-	Label label = stack->label;
-	
-	char* bodyLabel = calloc(10,sizeof(char));
-    strcpy(bodyLabel,"body");
-	char buff[5];
-	sprintf(buff,"%d",label.numBody);
-	strcat(bodyLabel,buff);
-
-	stack->label.numBody += 1;
-	
-	return bodyLabel;
-}
-
 Content* andFun(){
 	Content* andContent = initContent();
 	concatContent(andContent,"int and(int x, int y){\n");
@@ -1472,6 +1376,18 @@ Content* comparaisonFonction(char* name,char* cnd){
 	concatContent(content,name);
 	concatContent(content,":\n\t return 1;\n}\n\n");
 	return content;
+}
+
+char* generateLabel(int* numLab, char* name){
+    char* label = calloc(12,sizeof(char));
+    stpcpy(label,name);
+    char buff[5];
+    sprintf(buff,"%d",*numLab);
+    strcat(label,buff);
+    
+    *numLab += 1;
+    
+    return label;
 }
 
 int test(){

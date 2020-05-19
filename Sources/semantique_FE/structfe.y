@@ -714,7 +714,7 @@ selection_statement
 			fprintf(stderr,"\nif need a int value\n"); yyerror("SEMANTIC ERROR"); 
 		}
 		
-		ToWrite toWrite = createIfBackend(stackBE, &$3.backend,typeToBackend(&$3.type), &$5, generateIfLabel(stackBE), generateContinueLabel(stackBE));
+		ToWrite toWrite = createIfBackend(stackBE, &$3.backend,typeToBackend(&$3.type), &$5, generateLabel(&stackBE->label.numIf,"if"), generateLabel(&stackBE->label.numContinue,"continue"));
 		$$=toWrite;
 	}	
     | IF '(' expression ')' statement ELSE statement{
@@ -723,7 +723,8 @@ selection_statement
 			fprintf(stderr,"\nif need a int value\n"); yyerror("SEMANTIC ERROR"); 
 		}
 
-		ToWrite toWrite = createIfElseBackend(stackBE, &$3.backend, typeToBackend(&$3.type), &$5, &$7, generateIfLabel(stackBE), generateElseLabel(stackBE),generateContinueLabel(stackBE));
+		ToWrite toWrite = createIfElseBackend(stackBE, &$3.backend, typeToBackend(&$3.type), &$5, &$7, 
+			generateLabel(&stackBE->label.numIf,"if"), generateLabel(&stackBE->label.numElse,"else"),generateLabel(&stackBE->label.numContinue,"continue"));
 		$$=toWrite;
 	}
     ;
@@ -734,7 +735,8 @@ iteration_statement
 		if(!($3.type.isPtr==1 || ($3.type.isPtr==0 && $3.type.isUnary==1 && $3.type.unaryType == INT_T))){
 			fprintf(stderr,"\nif need a int value\n"); yyerror("SEMANTIC ERROR"); 
 		}
-		ToWrite toWrite = createWhileBackend(stackBE, &$3.backend, typeToBackend(&$3.type), &$5, generateWhileLabel(stackBE), generateBodyLabel(stackBE),generateContinueLabel(stackBE));
+		ToWrite toWrite = createWhileBackend(stackBE, &$3.backend, typeToBackend(&$3.type), &$5, 
+			generateLabel(&stackBE->label.numWhile,"while"), generateLabel(&stackBE->label.numBody,"body"),generateLabel(&stackBE->label.numContinue,"continue"));
 		$$=toWrite;
 		
 	}
@@ -749,7 +751,7 @@ iteration_statement
 		makeAvailableTmpVar(stackBE->top->tmpVarList);
 
 		ToWrite toWrite = createForBackend(stackBE, &$3.backend.toWrite,&$4.backend,typeToBackend(&$4.type), &$6.backend.toWrite, &$8, 
-			generateForLabel(stackBE), generateTestLabel(stackBE));
+			generateLabel(&stackBE->label.numFor,"for"), generateLabel(&stackBE->label.numTest,"test"));
 		$$ = toWrite;
 	}
 	

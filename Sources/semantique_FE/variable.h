@@ -350,16 +350,11 @@ ToWrite createIfElseBackend(StackBE* stack, BackendTransit* cnd,TypeBE cndType, 
 ToWrite createWhileBackend(StackBE* stack, BackendTransit* cnd,TypeBE cndType, ToWrite* corps, char* whileLabel,char* bodyLabel, char* continueLabel);
 ToWrite createForBackend(StackBE* stack,ToWrite* init, BackendTransit* cnd,TypeBE cndType, ToWrite* incrmt, ToWrite* corps, char* forLabel, char* testLabel);
 void callBackendFonction(StackBE* stack, BackendTransit* left, TypeBE leftType, BackendTransit* right, TypeBE rightType,char* nameFonction, int* op);
-char* generateIfLabel(StackBE* stack);
-char* generateElseLabel(StackBE* stack);
-char* generateWhileLabel(StackBE* stack);
-char* generateContinueLabel(StackBE* stack);
-char* generateBodyLabel(StackBE* stack);
-char* generateTestLabel(StackBE* stack);
-char* generateForLabel(StackBE* stack);
 
 Content* andFun();
 Content* orFun();
 Content* comparaisonFonction(char* name,char* cnd);
+
+char* generateLabel(int* numLab, char* name);
 
 #endif
