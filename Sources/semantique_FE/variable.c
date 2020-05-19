@@ -151,6 +151,8 @@ typedef struct _ToWrite
 typedef struct _BackendTransit{
 	int hasOp;
 	Content* expression;
+
+	int dontNeedToWriteExp;
 	int isTmpVar;
 	TmpVar* tmpVar;
 

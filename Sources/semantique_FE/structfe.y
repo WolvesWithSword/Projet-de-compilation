@@ -459,20 +459,44 @@ expression
 
 				if(($1.backend.hasOp == 1) && ($3.backend.hasOp == 1)) $1.backend.hasOp = 0;
 				else if($1.backend.hasOp == 0) $3.backend.hasOp = 0;
-				operationTraitement(stackBE,&$1.backend,typeToBackend(&$1.type),&$3.backend,typeToBackend(&$3.type)," = ");
-
-				$3.backend = $1.backend;
-				$$ = $3;
+				affectToTmp(stackBE,&$1.backend,typeToBackend(&$1.type));
+				affectToTmp(stackBE,&$3.backend,typeToBackend(&$3.type));
+				addToWriteToWrite(&$3.backend.toWrite,&$1.backend.toWrite);
+				$1.backend.toWrite = $3.backend.toWrite;
+				
+				Content* affect = initContent();
+				concatContent(affect,$1.backend.expression->data);
+				concatContent(affect," = ");
+				concatContent(affect,$3.backend.expression->data);
+				concatContent(affect," ;\n");
+				addToWriteContent(&$1.backend.toWrite,affect);
+				$1.backend.dontNeedToWriteExp = 1;
+				
+				freeContent($3.backend.expression);
+				
+				$$ = $1;
 			}
 			else if(res == 2){fprintf(stderr,"\nWarning : makes integer from pointer\n"); 
 				$$.isAffectable = 0;
 
 				if(($1.backend.hasOp == 1) && ($3.backend.hasOp == 1)) $1.backend.hasOp = 0;
 				else if($1.backend.hasOp == 0) $3.backend.hasOp = 0;
-				operationTraitement(stackBE,&$1.backend,typeToBackend(&$1.type),&$3.backend,typeToBackend(&$3.type)," = ");
+				affectToTmp(stackBE,&$1.backend,typeToBackend(&$1.type));
+				affectToTmp(stackBE,&$3.backend,typeToBackend(&$3.type));
+				addToWriteToWrite(&$3.backend.toWrite,&$1.backend.toWrite);
+				$1.backend.toWrite = $3.backend.toWrite;
+				
+				Content* affect = initContent();
+				concatContent(affect,$1.backend.expression->data);
+				concatContent(affect," = ");
+				concatContent(affect,$3.backend.expression->data);
+				concatContent(affect," ;\n");
+				addToWriteContent(&$1.backend.toWrite,affect);
+				$1.backend.dontNeedToWriteExp = 1;
 
-				$3.backend = $1.backend;
-				$$ = $3;
+				freeContent($3.backend.expression);
+				
+				$$ = $1;
 			}
             else{fprintf(stderr,"\nError: incompatible types when assigning\n"); yyerror("SEMANTIC ERROR");}
 		}
@@ -660,11 +684,11 @@ compound_statement
 		addToWriteContent(&toWrite,content);
 
 		//ajout des delcaration
-		addTabulationToWrite(&$5,stackBE->top->stageNb+1);
+		addTabulationToWrite(&$5,1);
 		addToWriteToWrite(&toWrite,&$5);
 
 		//ajout des expression
-		addTabulationToWrite(&$3,stackBE->top->stageNb+1);
+		addTabulationToWrite(&$3,1);
 		addToWriteContent(&toWrite,$3.first);
 		
 
@@ -698,8 +722,11 @@ expression_statement
     : ';'{/*return int?*/}
     | expression ';' {
 		if($1.backend.expression->data != NULL){
-			concatContent($1.backend.expression,";\n");
-			addToWriteContent(&$1.backend.toWrite,$1.backend.expression);
+			if(!$1.backend.dontNeedToWriteExp){
+				concatContent($1.backend.expression,";\n");
+				addToWriteContent(&$1.backend.toWrite,$1.backend.expression);
+			}
+			else { $1.backend.dontNeedToWriteExp = 0 ;}
 			makeAvailableTmpVar(stackBE->top->tmpVarList);
 		}
 		$$ = $1;
@@ -724,7 +751,7 @@ selection_statement
 		}
 
 		ToWrite toWrite = createIfElseBackend(stackBE, &$3.backend, typeToBackend(&$3.type), &$5, &$7, 
-			generateLabel(&stackBE->label.numIf,"if"), generateLabel(&stackBE->label.numElse,"else"),generateLabel(&stackBE->label.numContinue,"continue"));
+            generateLabel(&stackBE->label.numIf,"if"), generateLabel(&stackBE->label.numElse,"else"),generateLabel(&stackBE->label.numContinue,"continue"));
 		$$=toWrite;
 	}
     ;
@@ -736,7 +763,7 @@ iteration_statement
 			fprintf(stderr,"\nif need a int value\n"); yyerror("SEMANTIC ERROR"); 
 		}
 		ToWrite toWrite = createWhileBackend(stackBE, &$3.backend, typeToBackend(&$3.type), &$5, 
-			generateLabel(&stackBE->label.numWhile,"while"), generateLabel(&stackBE->label.numBody,"body"),generateLabel(&stackBE->label.numContinue,"continue"));
+            generateLabel(&stackBE->label.numWhile,"while"), generateLabel(&stackBE->label.numBody,"body"),generateLabel(&stackBE->label.numContinue,"continue"));
 		$$=toWrite;
 		
 	}

@@ -148,6 +148,7 @@ typedef struct _ToWrite
 typedef struct _BackendTransit{
 	int hasOp;
 	Content* expression;
+	int dontNeedToWriteExp;
 	int isTmpVar;
 	TmpVar* tmpVar;
 
@@ -351,10 +352,10 @@ ToWrite createWhileBackend(StackBE* stack, BackendTransit* cnd,TypeBE cndType, T
 ToWrite createForBackend(StackBE* stack,ToWrite* init, BackendTransit* cnd,TypeBE cndType, ToWrite* incrmt, ToWrite* corps, char* forLabel, char* testLabel);
 void callBackendFonction(StackBE* stack, BackendTransit* left, TypeBE leftType, BackendTransit* right, TypeBE rightType,char* nameFonction, int* op);
 
+char* generateLabel(int* numLab, char* name);
+
 Content* andFun();
 Content* orFun();
 Content* comparaisonFonction(char* name,char* cnd);
-
-char* generateLabel(int* numLab, char* name);
 
 #endif
