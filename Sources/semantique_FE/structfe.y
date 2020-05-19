@@ -468,7 +468,7 @@ expression
 				concatContent(affect,$1.backend.expression->data);
 				concatContent(affect," = ");
 				concatContent(affect,$3.backend.expression->data);
-				concatContent(affect," ;\n");
+				concatContent(affect," ;\n\n");
 				addToWriteContent(&$1.backend.toWrite,affect);
 				$1.backend.dontNeedToWriteExp = 1;
 				
@@ -695,7 +695,7 @@ compound_statement
 		
 
 		Content* content2 = initContent();
-		concatContent(content2,"}\n");
+		concatContent(content2,"}\n\n");
 		addToWriteContent(&toWrite,content2);
 
 		$$ = toWrite;
@@ -725,7 +725,7 @@ expression_statement
     | expression ';' {
 		if($1.backend.expression->data != NULL){
 			if(!$1.backend.dontNeedToWriteExp){
-				concatContent($1.backend.expression,";\n");
+				concatContent($1.backend.expression,";\n\n");
 				addToWriteContent(&$1.backend.toWrite,$1.backend.expression);
 			}
 			else { $1.backend.dontNeedToWriteExp = 0 ;}
@@ -775,8 +775,11 @@ iteration_statement
 			fprintf(stderr,"\nif need a int value\n"); yyerror("SEMANTIC ERROR"); 
 		}
 
-		concatContent($6.backend.expression,";\n");
-		addToWriteContent(&$6.backend.toWrite,$6.backend.expression);
+		if(!$6.backend.dontNeedToWriteExp){
+				concatContent($6.backend.expression,";\n");
+				addToWriteContent(&$6.backend.toWrite,$6.backend.expression);
+		}
+		else { $6.backend.dontNeedToWriteExp = 0 ;}
 		makeAvailableTmpVar(stackBE->top->tmpVarList);
 
 		ToWrite toWrite = createForBackend(stackBE, &$3.backend.toWrite,&$4.backend,typeToBackend(&$4.type), &$6.backend.toWrite, &$8, 
@@ -872,7 +875,7 @@ int main(int argc, char *argv[])
 		addStageToStackBE(stackBE);
         addStageToStack(stack);
         yyparse();
-       	printf("Parse done\n");
+       	printf("Parse done\n\n");
 		printBackend(stackBE);
     }
     return 0;

@@ -1016,6 +1016,12 @@ ToWrite removeStageToStackBE(StackBE* stack){
 	ToWrite toWrite = {0};
 	addToWriteToWrite(&toWrite,deleteStage->declaration);
 	
+	if(deleteStage->declaration != NULL) {
+		Content* c = initContent();	
+		concatContent(c,"\n");
+		addToWriteContent(&toWrite,c);	
+	}
+	
 	TmpVar* current = deleteStage->tmpVarList;
 	Content* currentContent;
 	while(current != NULL){
@@ -1023,6 +1029,12 @@ ToWrite removeStageToStackBE(StackBE* stack){
 		addToWriteContent(&toWrite,currentContent);
 		current = current->next;
 	}
+	if(deleteStage->tmpVarList != NULL) {
+		Content* c2 = initContent();	
+		concatContent(c2,"\n");
+		addToWriteContent(&toWrite,c2);	
+	}
+	
 	//TODO faire les free
 	free(deleteStage);
 	return toWrite;
@@ -1212,7 +1224,7 @@ ToWrite createIfBackend(StackBE* stack, BackendTransit* cnd,TypeBE cndType, ToWr
 	
 	Content* elsePart = initContent();
 	concatContent(elsePart,elseLabel);
-	concatContent(elsePart,":\n");
+	concatContent(elsePart,":\n\n");
 	addToWriteContent(&writter,elsePart);
 
 	return writter;
@@ -1258,7 +1270,7 @@ ToWrite createIfElseBackend(StackBE* stack, BackendTransit* cnd ,TypeBE cndType,
 
 	Content* continuePart = initContent();
 	concatContent(continuePart,continueLabel);
-	concatContent(continuePart,":\n");
+	concatContent(continuePart,":\n\n");
 	addToWriteContent(&writter,continuePart);
 	
 	return writter;
@@ -1316,7 +1328,7 @@ ToWrite createForBackend(StackBE* stack,ToWrite* init, BackendTransit* cnd,TypeB
 	concatContent(ifCnd,cnd->expression->data);
 	concatContent(ifCnd,") goto ");
 	concatContent(ifCnd,forLabel);
-	concatContent(ifCnd,";\n");
+	concatContent(ifCnd,";\n\n");
 	addToWriteContent(&writter,ifCnd);
 
 	return writter;	
@@ -1374,9 +1386,9 @@ Content* comparaisonFonction(char* name,char* cnd){
 	concatContent(content,cnd);
 	concatContent(content,"y) goto label_");
 	concatContent(content,name);
-	concatContent(content,";\n\t return 0;\n\tlabel_");
+	concatContent(content,";\n\treturn 0;\n\tlabel_");
 	concatContent(content,name);
-	concatContent(content,":\n\t return 1;\n}\n\n");
+	concatContent(content,":\n\treturn 1;\n}\n\n");
 	return content;
 }
 
