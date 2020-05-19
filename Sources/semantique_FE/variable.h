@@ -61,6 +61,7 @@ typedef struct _FunctionType
 } FunctionType;
 
 
+struct _Fonction;
 /*
 Represente la declaration d'une variable
 */
@@ -69,6 +70,9 @@ typedef struct _Variable
 	Type* type;
 	char* name;
 
+	int isF;
+	struct _Fonction* f;
+	
 	struct _Variable *next;
 } Variable; 
 
@@ -334,7 +338,7 @@ TmpVar* getTmpVarStackBE(StackBE* stack,TypeBE type);
 void addToWriteStackBE(StackBE* stack,ToWrite* toWrite);
 void addDeclarationStackBE(StackBE* stack,Content* content);
 
-void* printBackend(StackBE* write);
+void printBackend(StackBE* stack,char* backendFileName);
 
 void dynamiqueAlloc(Content* content);
 void concatContent(Content* content, char* toAdd);

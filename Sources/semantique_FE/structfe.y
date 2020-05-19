@@ -647,7 +647,10 @@ parameter_declaration
         	$2.fonctionD->type->functionType->returnType = $1;
         	$2.fonctionD->type->functionType->returnType->isPtr = $2.isPtr;
         	$2.fonctionD->type->functionType->parameters = variableToParameterType($2.fonctionD->variables);
-			Variable* var = initVariable(); var->type = $2.fonctionD->type; var->name = $2.name; $$ = var;
+			Variable* var = initVariable(); var->type = $2.fonctionD->type; var->name = $2.name;
+			var->isF = 1;
+			var->f = $2.fonctionD;
+		 	$$ = var;
 	}else{yyerror("SEMANTIC ERROR");}
 		
     }
@@ -837,7 +840,7 @@ function_definition
         if(isExistingInStageFunction(stack,$2.fonctionD)) {fprintf(stderr,"\nPrevious declaration of %s was here\n",$2.name); yyerror("SEMANTIC ERROR");} 
 
         
-		$2.fonctionD->type->isFunction = 1;
+	$2.fonctionD->type->isFunction = 1;
         $1->isPtr = $2.isPtr;
         $2.fonctionD->type->functionType = initFunctionType();
         $2.fonctionD->type->functionType->returnType = $1;
@@ -866,19 +869,32 @@ int yyerror( char *s ){
 
 int main(int argc, char *argv[])
 {
+	char* backendName;
     if((yyin = fopen(argv[1],"r"))==NULL){
         fprintf(stderr,"File not found\n");
         exit(1);
     } 
-    else {
-        stack = newStack();
-		stackBE = newStackBE();
-		addStageToStackBE(stackBE);
-        addStageToStack(stack);
-        yyparse();
-       	printf("Parse done\n\n");
-		printBackend(stackBE);
-    }
+	if(argv[2]==NULL){
+		int len = strlen(argv[1]);
+		char * path = argv[1];
+		backendName = malloc(sizeof(char)*(len+15));
+		path[len-1]=0;
+		path[len-2]=0;
+		printf("%s\n",path);
+		strcpy(backendName,argv[1]);
+		strcat(backendName,"_backend.c");
+	}
+	else{backendName = argv[2];}
+
+	stack = newStack();
+	stackBE = newStackBE();
+	addStageToStackBE(stackBE);
+	addStageToStack(stack);
+	yyparse();
+	printf("Parse done\n\n");
+	printBackend(stackBE,backendName);
+	printf("\nWrite done\n");
+    
     return 0;
 }
 

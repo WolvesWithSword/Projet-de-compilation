@@ -53,7 +53,7 @@ typedef struct _FunctionType
 	ParameterType* parameters;
 } FunctionType;
 
-
+struct _Fonction;
 /*
 Represente la declaration d'une variable
 */
@@ -62,6 +62,9 @@ typedef struct _Variable
 	Type* type;
 	char* name;
 
+	int isF;
+	struct _Fonction* f;
+	
 	struct _Variable *next;
 } Variable; 
 
@@ -1058,39 +1061,42 @@ Content* comparaisonFonction(char* name,char* cnd);
 Content* andFun();
 Content* orFun();
 
-/*A utilise uniquement quand il reste 1 etage
-et que l'on veut marquer tout dans le fichier*/
-void printBackend(StackBE* stack){
-	if(stack->hasOr) fprintf(stdout,"%s",orFun()->data);
-	if(stack->hasAnd) fprintf(stdout,"%s",andFun()->data);
-	if(stack->hasEq) fprintf(stdout,"%s",comparaisonFonction("eq","==")->data);
-	if(stack->hasNoEq) fprintf(stdout,"%s",comparaisonFonction("noEq","!=")->data);
-	if(stack->hasSup) fprintf(stdout,"%s",comparaisonFonction("sup",">")->data);
-	if(stack->hasSupEq) fprintf(stdout,"%s",comparaisonFonction("supEq",">=")->data);
-	if(stack->hasInf) fprintf(stdout,"%s",comparaisonFonction("inf","<")->data);
-	if(stack->hasInfEq) fprintf(stdout,"%s",comparaisonFonction("infEq","<=")->data);
+
+/*affiche le resulta dans un fichier*/
+void printBackend(StackBE* stack,char* backendFileName){
+	printf("%s\n",backendFileName);
+	FILE* backendFile = fopen(backendFileName, "w");
+	if(stack->hasOr) fprintf(backendFile,"%s",orFun()->data);
+	if(stack->hasAnd) fprintf(backendFile,"%s",andFun()->data);
+	if(stack->hasEq) fprintf(backendFile,"%s",comparaisonFonction("eq","==")->data);
+	if(stack->hasNoEq) fprintf(backendFile,"%s",comparaisonFonction("noEq","!=")->data);
+	if(stack->hasSup) fprintf(backendFile,"%s",comparaisonFonction("sup",">")->data);
+	if(stack->hasSupEq) fprintf(backendFile,"%s",comparaisonFonction("supEq",">=")->data);
+	if(stack->hasInf) fprintf(backendFile,"%s",comparaisonFonction("inf","<")->data);
+	if(stack->hasInfEq) fprintf(backendFile,"%s",comparaisonFonction("infEq","<=")->data);
 	
 	Content* current = stack->top->declaration->first;
 	while(current!=NULL){
-		for(int i = 0;i<current->tabulation; i++) fprintf(stdout,"\t");
-		fprintf(stdout,"%s",current->data);
+		for(int i = 0;i<current->tabulation; i++) fprintf(backendFile,"\t");
+		fprintf(backendFile,"%s",current->data);
 		current = current->next;
 	}
 
 	TmpVar* currentVar = stack->top->tmpVarList;
 	while(current != NULL){
 		current = tmpToContent(currentVar);
-		for(int i = 0;i<current->tabulation; i++) fprintf(stdout,"\t");
-		fprintf(stdout,"%s",current->data);
+		for(int i = 0;i<current->tabulation; i++) fprintf(backendFile,"\t");
+		fprintf(backendFile,"%s",current->data);
 		currentVar = currentVar->next;
 	}
 
 	current = stack->top->toWrite->first;
 	while(current!=NULL){
-		for(int i = 0;i<current->tabulation; i++) fprintf(stdout,"\t");
-		fprintf(stdout,"%s",current->data);
+		for(int i = 0;i<current->tabulation; i++) fprintf(backendFile,"\t");
+		fprintf(backendFile,"%s",current->data);
 		current = current->next;
 	}
+	fclose(backendFile);
 }
 
 void dynamiqueAlloc(Content* content){
@@ -1172,14 +1178,23 @@ Content* fonctionDeclarationToBE(Fonction* fonction){
 	char* type = toStringTypeBE(typeToBackend(fonction->type->functionType->returnType));
 	Content* content = initContent();
 	concatContent(content,type);
+
+	if(fonction->type->isPtr){
+		concatContent(content,"(*");
+	}
 	concatContent(content,"usr_");
 	concatContent(content,fonction->name);
+	if(fonction->type->isPtr){
+		concatContent(content,")");
+	}
+
 	concatContent(content,"(");
 	Variable* current = fonction->variables;
 	Content* var;
 
 	while(current!=NULL){
-		var = variableDeclarationToBE(current);
+		if(current->isF && current->f!=NULL) var = fonctionDeclarationToBE(current->f);
+		else var = variableDeclarationToBE(current);
 		concatContent(content,var->data);
 		free(var);
 		current = current->next;
