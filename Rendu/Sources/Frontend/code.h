@@ -1,5 +1,5 @@
-#ifndef VARIABLE_H
-#define VARIABLE_H
+#ifndef CODE_H
+#define CODE_H
 
 /*Struct declaration implicite*/
 struct _TypeStruct;

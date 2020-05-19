@@ -1,0 +1,17 @@
+Le verbose du parse detaillé est desactivé de base. 
+
+Dans le dossier frontend : 
+la commande "make" :  permet de compiler le fichier lex, yacc et c
+la commande "make compile" : produit le meme effet
+la commande "make clean" : efface toutes les productions de la compilation du fichier lex, yacc et c
+la commande "make execTest" : parse et traduit en backend tout les fichiers.c du dossier Tests
+à noter que cette commande ne re-traduira pas les fichiers backend générés. 
+la commande "./parser fichier nomFichier" parse le fichier "fichier" et le traduit dans le fichier "nomFichier"
+à noter que le "nomFichier" peut être nul, et un nom par défaut sera donné.
+
+Dans le dossier backend : 
+à noter : une extension "_backend" est ajouté au fichier traduit en backend (par defaut)
+la commande "make" :  permet de compiler le fichier lex, yacc et c
+la commande "make compile" : produit le meme effet
+la commande "make clean" : efface toutes les productions de la compilation du fichier lex, yacc et c
+la commande "make execTest" : parse tout les fichiers backend générés dans le dossier Tests

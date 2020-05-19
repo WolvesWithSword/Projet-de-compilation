@@ -9,7 +9,7 @@ COM			"/*"([^*]|(\*[^/]))*"*/"
 %{
 #include <stdio.h>
 #include <stdlib.h>
-#include "variable.h"
+#include "code.h"
 #include "y.tab.h"
 
 int yylex();
