@@ -518,11 +518,12 @@ declaration
             var->type = $1;
             addVariableToStack(stack,var);
 			
-			Content* varString = variableDeclarationToBE(var);
+	   		Content* varString = variableDeclarationToBE(var);
 			concatContent(varString,";\n");
+			addDeclarationStackBE(stackBE,varString);
 
 
-			addToWriteContent(&toWrite,varString);
+			//addToWriteContent(&toWrite,varString);
 			$$ = toWrite;
         }
         else if($2.variableD == NULL && $2.fonctionD != NULL && $2.name != NULL) {
@@ -541,8 +542,9 @@ declaration
 			Content* fct = fonctionDeclarationToBE($2.fonctionD);
 			concatContent(fct,";\n\n");
 
-			
-			addToWriteContent(&toWrite,fct);
+			addDeclarationStackBE(stackBE,fct);
+
+			//addToWriteContent(&toWrite,fct);
 			$$ = toWrite;
         }
         else{fprintf(stderr,"\ndeclaration error\n"); yyerror("SEMANTIC ERROR");}

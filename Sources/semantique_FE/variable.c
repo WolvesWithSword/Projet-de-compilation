@@ -1045,7 +1045,7 @@ void addToWriteStackBE(StackBE* stack,ToWrite* toWrite){
 }
 
 void addDeclarationStackBE(StackBE* stack,Content* content){
-	content->tabulation = stack->top->stageNb;
+	//content->tabulation = stack->top->stageNb-1;
 	addToWriteContent(stack->top->declaration,content);
 	
 }
