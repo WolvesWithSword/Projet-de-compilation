@@ -14,6 +14,7 @@ COM			"/*"([^*]|(\*[^/]))*"*/"
 
 int yylex();
 int yyerror();
+int verbose = 0;
 
 
 
@@ -23,82 +24,45 @@ int yyerror();
 %}
 
 %%
-{COM}			{ fprintf(stdout, "comment : %s\n",yytext);}
-"auto"                  { /* A completer */ }
-"break"                 { /* A completer */ }
-"case"                  { /* A completer */ }
-"char"                  { /* A completer */ }
-"const"                 { /* A completer */ }
-"continue"              { /* A completer */ }
-"default"               { /* A completer */ }
-"do"                    { /* A completer */ }
-"double"                { /* A completer */ }
-"else"                  { printf("ELSE");return ELSE;  }
-"enum"                  { /* A completer */ }
-"extern"                { printf("EXTERN");return EXTERN; }
-"float"                 { /* A completer */ }
-"for"                   { printf("FOR");return FOR;}
-"goto"                  { /* A completer */ }
-"if"                    { printf("IF");return IF; }
-"int"                   { printf("INT");return INT; }
-"long"                  { /* A completer */ }
-"register"              { /* A completer */ }
-"return"                { printf("RETURN"); return RETURN; }
-"short"                 { /* A completer */ }
-"signed"                { /* A completer */ }
-"sizeof"                { printf("SIZEOF"); return SIZEOF; }
-"static"                { /* A completer */ }
-"struct"                { printf("STRUCT"); return STRUCT; }
-"switch"                { /* A completer */ }
-"typedef"               { /* A completer */ }
-"union"                 { /* A completer */ }
-"unsigned"              { /* A completer */ }
-"void"                  { printf("VOID"); return VOID;}
-"volatile"              { /* A completer */ }
-"while"                 { printf("WHILE"); return WHILE;}
+{COM}			{ if(verbose) fprintf(stdout, "comment : %s\n",yytext);}
 
-{L}({L}|{D})*           {yylval.name = strdup(yytext); printf("IDENTIFIER:%s",yytext); return IDENTIFIER;}
+"else"                  { if(verbose) printf("ELSE");return ELSE;  }
 
-0[xX]{H}+{IS}?          { /* A completer */ }
-0{D}+{IS}?              { /* A completer */ }
-{D}+{IS}?               {yylval.value = atoi(yytext); printf("CONSTANT:%s",yytext); return CONSTANT;}
-L?'(\\.|[^\\'])+'       { /* A completer */ }
+"extern"                { if(verbose) printf("EXTERN");return EXTERN; }
 
-{D}+{E}{FS}?            { /* A completer */ }
-{D}*"."{D}+({E})?{FS}?  { /* A completer */ }
-{D}+"."{D}*({E})?{FS}?  { /* A completer */ }
+"for"                   { if(verbose) printf("FOR");return FOR;}
 
-L?\"(\\.|[^\\"])*\"     { /* A completer */ }
+"if"                    { if(verbose) printf("IF");return IF; }
+"int"                   { if(verbose) printf("INT");return INT; }
 
-"..."                   { /* A completer */ }
-">>="                   { /* A completer */ }
-"<<="                   { /* A completer */ }
-"+="                    { /* A completer */ }
-"-="                    { /* A completer */ }
-"*="                    { /* A completer */ }
-"/="                    { /* A completer */ }
-"%="                    { /* A completer */ }
-"&="                    { /* A completer */ }
-"^="                    { /* A completer */ }
-"|="                    { /* A completer */ }
-">>"                    { /* A completer */ }
-"<<"                    { /* A completer */ }
-"++"                    { /* A completer */ }
-"--"                    { /* A completer */ }
-"->"                    { printf(" PTR_OP ");return PTR_OP; }
-"&&"                    { printf(" AND_OP ");return AND_OP; }
-"||"                    { printf(" OR_OP ");return OR_OP; }
-"<="                    { printf(" LE_OP "); return LE_OP;}
-">="                    { printf(" GE_OP "); return GE_OP;}
-"=="                    { printf(" EQ_OP "); return EQ_OP;}
-"!="                    { printf(" NE_OP "); return NE_OP;}
+"return"                { if(verbose) printf("RETURN"); return RETURN; }
 
-"("|")"|"{"|"}"   { printf(" %c ",yytext[0]);return yytext[0];}
-"*"|"-"|"/"|"+"   { printf(" %c ",yytext[0]);return yytext[0];}
-"<"|">"|"="|"&"   { printf(" %c ",yytext[0]);return yytext[0];}
-","|";"|"."       { printf(" %c ",yytext[0]);return yytext[0];}
+"sizeof"                { if(verbose) printf("SIZEOF"); return SIZEOF; }
+"struct"                { if(verbose) printf("STRUCT"); return STRUCT; }
 
-[ \t\v\n\f\r]     { printf("%c",yytext[0]);}
+"void"                  { if(verbose) printf("VOID"); return VOID;}
+"while"                 { if(verbose) printf("WHILE"); return WHILE;}
+
+{L}({L}|{D})*           {yylval.name = strdup(yytext); if(verbose) printf("IDENTIFIER:%s",yytext); return IDENTIFIER;}
+
+{D}+{IS}?               {yylval.value = atoi(yytext); if(verbose) printf("CONSTANT:%s",yytext); return CONSTANT;}
+
+
+
+"->"                    { if(verbose) printf(" PTR_OP ");return PTR_OP; }
+"&&"                    { if(verbose) printf(" AND_OP ");return AND_OP; }
+"||"                    { if(verbose) printf(" OR_OP ");return OR_OP; }
+"<="                    { if(verbose) printf(" LE_OP "); return LE_OP;}
+">="                    { if(verbose) printf(" GE_OP "); return GE_OP;}
+"=="                    { if(verbose) printf(" EQ_OP "); return EQ_OP;}
+"!="                    { if(verbose) printf(" NE_OP "); return NE_OP;}
+
+"("|")"|"{"|"}"   { if(verbose) printf(" %c ",yytext[0]);return yytext[0];}
+"*"|"-"|"/"|"+"   { if(verbose) printf(" %c ",yytext[0]);return yytext[0];}
+"<"|">"|"="|"&"   { if(verbose) printf(" %c ",yytext[0]);return yytext[0];}
+","|";"|"."       { if(verbose) printf(" %c ",yytext[0]);return yytext[0];}
+
+[ \t\v\n\f\r]     { if(verbose) printf("%c",yytext[0]);}
 
 .                       { fprintf(stderr,"%c\n",yytext[0]); yyerror("char not accepted"); }
 %%

@@ -665,11 +665,11 @@ statement
     ;
 
 new_stage
-    : {printf("\nadd stage\n");addStageToStack(stack);
+    : {/*printf("\nadd stage\n");*/addStageToStack(stack);
 		addStageToStackBE(stackBE);};
 
 remove_stage
-    : {printf("\nremove stage\n");printStack(stack);removeStageToStack(stack);
+    : {/*printf("\nremove stage\n");printStack(stack);*/removeStageToStack(stack);
 		ToWrite toWrite = removeStageToStackBE(stackBE);
 		$$ = toWrite;
 	};

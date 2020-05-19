@@ -28,4 +28,6 @@ execTest:
 clean:
 	rm -f y.tab.h y.tab.c parser lex.yy.c
 
+remove_backend.c_testDir:
+	find $(testDir)/ -name *_backend.c -exec rm {} \;
 
