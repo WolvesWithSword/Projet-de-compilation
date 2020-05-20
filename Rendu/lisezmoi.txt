@@ -8,6 +8,7 @@ la commande "make execTest" : parse et traduit en backend tout les fichiers.c du
 à noter que cette commande ne re-traduira pas les fichiers backend générés. 
 la commande "./parser fichier nomFichier" parse le fichier "fichier" et le traduit dans le fichier "nomFichier"
 à noter que le "nomFichier" peut être nul, et un nom par défaut sera donné.
+la commande "make removeBackend" supprime les fichiers backend créés dans le dossier Tests
 
 Dans le dossier backend : 
 à noter : une extension "_backend" est ajouté au fichier traduit en backend (par defaut)
@@ -15,3 +16,15 @@ la commande "make" :  permet de compiler le fichier lex, yacc et c
 la commande "make compile" : produit le meme effet
 la commande "make clean" : efface toutes les productions de la compilation du fichier lex, yacc et c
 la commande "make execTest" : parse tout les fichiers backend générés dans le dossier Tests
+
+à noter : si cette erreur survient apres un make execTest:
+chmod +x execTest.sh
+./execTest.sh ../../Tests parser
+make: ./execTest.sh: Command not found
+Makefile:26: recipe for target 'execTest' failed
+make: *** [execTest] Error 127
+
+Cela vien des \r ajouté par windows après un \n. (après un passage sur nos machines hôtes pour mettre sur github)
+Solution simple : 
+Copier coller le execTest.sh dans un autre fichier, supprimer le execTest.sh et renommer le nouveau fichier en execTest.sh. 
+
