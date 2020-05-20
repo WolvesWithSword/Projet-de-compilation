@@ -458,6 +458,7 @@ expression
 				
 				int oldHasOp = $1.backend.hasOp;
 				if(($1.backend.hasOp == 1) && ($3.backend.hasOp == 1)) $1.backend.hasOp = 0;
+				else if(($1.backend.hasOp == 1) && ($3.backend.hasOp == 0)) $1.backend.hasOp = 0;
 				else if($1.backend.hasOp == 0) $3.backend.hasOp = 0;
 				affectToTmp(stackBE,&$1.backend,typeToBackend(&$1.type));
 				affectToTmp(stackBE,&$3.backend,typeToBackend(&$3.type));
@@ -482,6 +483,7 @@ expression
 
 				int oldHasOp = $1.backend.hasOp;
 				if(($1.backend.hasOp == 1) && ($3.backend.hasOp == 1)) $1.backend.hasOp = 0;
+				else if(($1.backend.hasOp == 1) && ($3.backend.hasOp == 0)) $1.backend.hasOp = 0;
 				else if($1.backend.hasOp == 0) $3.backend.hasOp = 0;
 				affectToTmp(stackBE,&$1.backend,typeToBackend(&$1.type));
 				affectToTmp(stackBE,&$3.backend,typeToBackend(&$3.type));
